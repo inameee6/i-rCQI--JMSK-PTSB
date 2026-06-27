@@ -1,3 +1,4 @@
+/* i-rCQI app.js — Build 20260627100435 */
 /* ===================================================================
    i-rCQI — APP.JS
    Sambungan ke Google Apps Script (backend) + logik penuh sistem
@@ -568,9 +569,9 @@ function openReportForm(id) {
       </div>
 
 
-      <!-- 7.0 LAMPIRAN -->
+      <!-- 7.0 ATTACHMENTS -->
       <div class="section-block">
-        <div class="card-title mb-0"><span class="card-num">7</span>Lampiran</div>
+        <div class="card-title mb-0"><span class="card-num">7</span>Attachments</div>
         <div class="form-grid mt-2">
           <div class="form-group">
             <label>7.1 Discussion Minutes</label>
