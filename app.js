@@ -1,4 +1,4 @@
-/* i-rCQI Build 20260628021520 */
+/* i-rCQI Build 20260628022348 */
 /* ===================================================================
    i-rCQI — APP.JS
    Sambungan ke Google Apps Script (backend) + logik penuh sistem
@@ -482,13 +482,25 @@ function openReportForm(id) {
         </div>
       </div>
 
-      <!-- 5.0 PENCAPAIAN PELAJAR -->
+      <!-- 5.0 STUDENT PERFORMANCE -->
       <div class="section-block">
         <div class="card-title mb-0"><span class="card-num">5</span>Student Performance</div>
 
+        <!-- Previous Session Comparison — at top of section 5 -->
+        <div class="section-block mt-2" style="background:var(--amber-light);border:1px solid #FAC775;">
+          <b class="text-sm" style="color:var(--amber);">📂 Previous Session Comparison</b>
+          <p class="text-sm mt-1" style="color:var(--amber);margin-bottom:8px;">Fill in all current data below first, then select a previous session to auto-fill comparison data (grades, CLO &amp; PLO).</p>
+          <div class="flex items-center gap-8">
+            <select id="prev-session-select" style="flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;" onchange="loadPreviousSessionData()">
+              <option value="">— Select previous session —</option>
+            </select>
+            <button class="btn btn-outline btn-sm" onclick="clearPreviousData()">✕ Clear</button>
+          </div>
+        </div>
+
         <div class="mt-2"><b class="text-sm">5.1 Student Grades (% of students)</b>
           <div class="alert alert-info mt-1" style="margin-bottom:8px;font-size:12px;">
-            💡 <b>How to fill:</b> Enter the <b>percentage (%) of students</b> for each grade. Total of all grades must equal <b>100%</b>. Previous session data will auto-fill when you select a previous session above.
+            💡 <b>How to fill:</b> Enter the <b>percentage (%) of students</b> for each grade. Total of all grades must equal <b>100%</b>. Previous session data will auto-fill when you select a previous session above (📂 box).
           </div>
           <div class="table-wrap mt-1">
             <table style="font-size:11px;">
@@ -567,16 +579,6 @@ function openReportForm(id) {
           <div class="text-sm text-muted mt-1" id="plo-empty-msg">Select Department, Programme &amp; course first to display PLO.</div>
         </div>
 
-        <!-- Previous Session Comparison — placed after current data filled -->
-        <div class="section-block mt-2" style="background:var(--amber-light);border:1px solid #FAC775;">
-          <b class="text-sm" style="color:var(--amber);">📂 Previous Session Comparison</b>
-          <p class="text-sm mt-1" style="color:var(--amber);margin-bottom:8px;">Fill in all current data above first, then select a previous session to auto-fill comparison data.</p>
-          <div class="flex items-center gap-8">
-            <select id="prev-session-select" style="flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;" onchange="loadPreviousSessionData()">
-              <option value="">— Select previous session —</option>
-            </select>
-            <button class="btn btn-outline btn-sm" onclick="clearPreviousData()">✕ Clear</button>
-          </div>
         </div>
       </div>
 
