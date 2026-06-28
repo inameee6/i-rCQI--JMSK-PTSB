@@ -163,10 +163,6 @@ const NAV_ITEMS = [
   { sep: 'Main Menu' },
   { id: 'dashboard', icon: '📊', label: 'Dashboard' },
   { id: 'reports', icon: '📝', label: 'CQI Reports' },
-  { id: 'perbandingan', icon: '🔄', label: 'Session Comparison' },
-  { sep: 'Others' },
-  { id: 'laporan', icon: '📄', label: 'Reports & Minutes' },
-  { id: 'pdfarchive', icon: '🗂️', label: 'PDF Archive' },
   { sep: 'Administration' },
   { id: 'kursus', icon: '🎓', label: 'Course Management', adminOnly: true },
   { id: 'pensyarah', icon: '👨‍🏫', label: 'Lecturers & Classes', adminOnly: true },
@@ -211,41 +207,254 @@ window.onload = () => { initAllSigCanvases(); };
 
 function renderDashboard() {
   const visibleReports = getVisibleReports();
+
+  // Get unique filter options
+  const allKursus = [...new Set(visibleReports.map(r => r.KodKursus).filter(Boolean))].sort();
+  const allProgram = [...new Set(visibleReports.map(r => r.Program).filter(Boolean))].sort();
+  const allSesi = [...new Set(visibleReports.map(r => r.Sesi).filter(Boolean))].sort().reverse();
+
+  // Recent PDFs for this user
+  const assignedKod = currentUser.KodKursus;
+  let recentPDFs = pdfLogList.slice().reverse().slice(0, 5);
+  if (currentUser.Peranan !== 'admin' && assignedKod) {
+    recentPDFs = recentPDFs.filter(l => l.KodKursus === assignedKod);
+  }
+
   const totalReports = visibleReports.length;
   const fullySigned = visibleReports.filter(r => r.StatusPenyelaras === 'Disahkan' && r.StatusKetua === 'Disahkan').length;
-  const pendingKetua = visibleReports.filter(r => r.StatusPenyelaras === 'Disahkan' && r.StatusKetua !== 'Disahkan').length;
-  const avgClo = computeAvgCloAll(visibleReports);
-
-  const rows = visibleReports.slice().reverse().slice(0, 8).map(r => `
-    <tr>
-      <td><span class="tag tag-blue">${esc(r.KodKursus)}</span></td>
-      <td>${esc(r.NamaKursus)}</td>
-      <td>${esc(r.Sesi)}</td>
-      <td>${statusBadge(r)}</td>
-      <td><button class="btn btn-outline btn-sm" onclick="openReportDetail('${r.ID}')">View</button></td>
-    </tr>`).join('');
+  const pendingSign = visibleReports.filter(r => r.StatusPenyelaras !== 'Disahkan').length;
+  const pendingHead = visibleReports.filter(r => r.StatusPenyelaras === 'Disahkan' && r.StatusKetua !== 'Disahkan').length;
 
   return `
     <div class="page-title">Dashboard</div>
-    <div class="page-sub">Selamat datang, ${esc(currentUser.Nama)}. Ringkasan laporan CQI semasa.</div>
+    <div class="page-sub">Welcome, ${esc(currentUser.Nama)}. Analytical overview of CQI Reports.</div>
 
+    <!-- STATS ROW -->
     <div class="stats-grid">
-      <div class="stat-card"><div class="stat-label">Jumlah CQI Reports</div><div class="stat-value">${totalReports}</div></div>
-      <div class="stat-card"><div class="stat-label">Purata CLO Dicapai</div><div class="stat-value">${avgClo !== null ? avgClo + '%' : '—'}</div></div>
-      <div class="stat-card"><div class="stat-label">Fully Verified Reports</div><div class="stat-value">${fullySigned}</div></div>
-      <div class="stat-card"><div class="stat-label">Pending Course Head</div><div class="stat-value">${pendingKetua}</div></div>
+      <div class="stat-card"><div class="stat-label">Total Reports</div><div class="stat-value">${totalReports}</div></div>
+      <div class="stat-card"><div class="stat-label">✅ Fully Verified</div><div class="stat-value" style="color:var(--success);">${fullySigned}</div></div>
+      <div class="stat-card"><div class="stat-label">⏳ Pending Coordinator</div><div class="stat-value" style="color:var(--amber);">${pendingSign}</div></div>
+      <div class="stat-card"><div class="stat-label">⏳ Pending Head</div><div class="stat-value" style="color:var(--amber);">${pendingHead}</div></div>
     </div>
 
+    <!-- FILTER BAR -->
+    <div class="card" style="padding:1rem 1.5rem;">
+      <b class="text-sm" style="display:block;margin-bottom:10px;">🔍 Filter &amp; Analyse</b>
+      <div class="form-grid3">
+        <div class="form-group mb-0">
+          <label>Course Code</label>
+          <select id="dash-filter-kursus" onchange="renderDashCharts()">
+            <option value="">— All Courses —</option>
+            ${allKursus.map(k => `<option value="${esc(k)}">${esc(k)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group mb-0">
+          <label>Programme</label>
+          <select id="dash-filter-program" onchange="renderDashCharts()">
+            <option value="">— All Programmes —</option>
+            ${allProgram.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group mb-0">
+          <label>Session</label>
+          <select id="dash-filter-sesi" onchange="renderDashCharts()">
+            <option value="">— All Sessions —</option>
+            ${allSesi.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHARTS AREA -->
+    <div id="dash-charts-area">
+      <div class="card" style="text-align:center;padding:2rem;color:var(--text-muted);">
+        <div style="font-size:36px;margin-bottom:8px;">📊</div>
+        <div>Select a filter above to display CLO/PLO trend charts.</div>
+      </div>
+    </div>
+
+    <!-- RECENT PDFS -->
     <div class="card">
-      <div class="card-title">Latest CQI Reports</div>
-      ${totalReports === 0 ? emptyState('📋', 'Belum ada laporan CQI. Mula tambah laporan baharu.') : `
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Kod</th><th>Course Name</th><th>Session</th><th>Status</th><th></th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>`}
+      <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
+        📁 PDF Archive
+        <button class="btn btn-outline btn-sm" onclick="showAllPDFs()">View All</button>
+      </div>
+      ${recentPDFs.length === 0
+        ? `<p class="text-sm text-muted">No PDFs generated yet. Generate a PDF from a fully verified report.</p>`
+        : `<div class="table-wrap">
+            <table>
+              <thead><tr><th>File Name</th><th>Session</th><th>Generated By</th><th>Date</th><th></th></tr></thead>
+              <tbody>${recentPDFs.map(l => `
+                <tr>
+                  <td>${esc(l.NamaFail || l.KodKursus)}</td>
+                  <td>${esc(l.Sesi)}</td>
+                  <td>${esc(l.JanaOleh)}</td>
+                  <td>${fmtDate(l.TarikhJana)}</td>
+                  <td>${l.DriveURL ? `<a href="${esc(l.DriveURL)}" target="_blank" class="btn btn-blue btn-sm">📄 Open</a>` : '—'}</td>
+                </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>`}
     </div>`;
+}
+
+function showAllPDFs() {
+  // Render full PDF archive inline in dashboard
+  const assignedKod = currentUser.KodKursus;
+  let logs = pdfLogList.slice().reverse();
+  if (currentUser.Peranan !== 'admin' && assignedKod) {
+    logs = logs.filter(l => l.KodKursus === assignedKod);
+  }
+  const sessions = [...new Set(logs.map(l => l.Sesi).filter(Boolean))].sort().reverse();
+  const grouped = {};
+  logs.forEach(l => {
+    const key = `${l.KodKursus}|${l.Sesi}`;
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(l);
+  });
+  const cards = Object.keys(grouped).map(key => {
+    const [kod, sesi] = key.split('|');
+    return `<div class="card pdf-archive-card" data-sesi="${esc(sesi)}">
+      <div class="card-title"><span class="tag tag-blue">${esc(kod)}</span> Session: ${esc(sesi)}</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>File</th><th>Generated On</th><th>By</th><th></th></tr></thead>
+        <tbody>${grouped[key].map(l => `<tr>
+          <td>${esc(l.NamaFail || l.KodKursus)}</td>
+          <td>${fmtDate(l.TarikhJana)}</td>
+          <td>${esc(l.JanaOleh)}</td>
+          <td>${l.DriveURL ? `<a href="${esc(l.DriveURL)}" target="_blank" class="btn btn-blue btn-sm">📄 Open</a>` : '—'}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>
+    </div>`;
+  }).join('');
+  document.getElementById('dash-charts-area').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+      <b>All PDF Reports</b>
+      <button class="btn btn-outline btn-sm" onclick="renderDashCharts()">← Back to Charts</button>
+    </div>
+    ${logs.length === 0 ? emptyState('🗂️', 'No PDFs generated yet.') : cards}`;
+}
+
+function renderDashCharts() {
+  const kod = document.getElementById('dash-filter-kursus')?.value || '';
+  const program = document.getElementById('dash-filter-program')?.value || '';
+  const sesi = document.getElementById('dash-filter-sesi')?.value || '';
+  const area = document.getElementById('dash-charts-area');
+  if (!area) return;
+
+  let filtered = getVisibleReports().filter(r =>
+    (!kod || r.KodKursus === kod) &&
+    (!program || r.Program === program) &&
+    (!sesi || r.Sesi === sesi)
+  ).sort((a, b) => String(a.Sesi).localeCompare(String(b.Sesi)));
+
+  if (!filtered.length) {
+    area.innerHTML = `<div class="card" style="text-align:center;padding:2rem;color:var(--text-muted);"><div style="font-size:36px;margin-bottom:8px;">🔍</div><div>No reports match the selected filters.</div></div>`;
+    return;
+  }
+
+  // Build CLO trend data (all CLOs across sessions)
+  const cloIds = [...new Set(filtered.flatMap(r => safeParseArr(r.CLOData).map(c => c.id)))];
+  const ploIds = [...new Set(filtered.flatMap(r => safeParseArr(r.PLOData).map(p => p.id)))];
+  const sessions = filtered.map(r => r.Sesi);
+  const colors = ['#185FA5','#3B6D11','#BA7517','#A32D2D','#5F5E5A','#378ADD','#6DB33F'];
+
+  // CLO chart
+  const cloLines = cloIds.map((id, i) => {
+    const points = filtered.map(r => {
+      const clo = safeParseArr(r.CLOData).find(c => c.id === id);
+      return parseFloat(clo?.pct) || 0;
+    });
+    return { id, points, color: colors[i % colors.length] };
+  });
+
+  // PLO chart
+  const ploLines = ploIds.map((id, i) => {
+    const points = filtered.map(r => {
+      const plo = safeParseArr(r.PLOData).find(p => p.id === id);
+      return parseFloat(plo?.pct) || 0;
+    });
+    return { id, points, color: colors[i % colors.length] };
+  });
+
+  // Grade trend
+  const gradeKeys = ['A+','A','A-','B+','B','B-','C+','C','C-','D+','D','E','E-','F'];
+  const gradeColors = { 'A+':'#185FA5','A':'#378ADD','A-':'#6BAED6','B+':'#3B6D11','B':'#74C476','B-':'#A1D99B','C+':'#BA7517','C':'#FEC44F','C-':'#FEE391','D+':'#A32D2D','D':'#FB6A4A','E':'#FCBBA1','E-':'#FEE0D2','F':'#5F5E5A' };
+
+  const chartHTML = (title, lines, labels) => {
+    if (!lines.length || !labels.length) return '';
+    const maxVal = Math.max(100, ...lines.flatMap(l => l.points));
+    const w = 700, h = 220, padL = 45, padB = 40, padT = 20, padR = 20;
+    const chartW = w - padL - padR;
+    const chartH = h - padB - padT;
+    const xStep = labels.length > 1 ? chartW / (labels.length - 1) : chartW;
+
+    // Grid lines
+    const gridLines = [0,25,50,75,100].map(v => {
+      const y = padT + chartH - (v / maxVal) * chartH;
+      return `<line x1="${padL}" y1="${y}" x2="${w - padR}" y2="${y}" stroke="#e0e0e0" stroke-width="1"/>
+              <text x="${padL - 5}" y="${y + 4}" text-anchor="end" font-size="10" fill="#999">${v}%</text>`;
+    }).join('');
+
+    // X labels
+    const xLabels = labels.map((l, i) => {
+      const x = padL + i * xStep;
+      return `<text x="${x}" y="${h - 8}" text-anchor="middle" font-size="10" fill="#666">${esc(l)}</text>`;
+    }).join('');
+
+    // Lines & dots
+    const linesSVG = lines.map(line => {
+      const pts = line.points.map((v, i) => `${padL + i * xStep},${padT + chartH - (v / maxVal) * chartH}`).join(' ');
+      const dots = line.points.map((v, i) => {
+        const cx = padL + i * xStep;
+        const cy = padT + chartH - (v / maxVal) * chartH;
+        return `<circle cx="${cx}" cy="${cy}" r="4" fill="${line.color}" stroke="white" stroke-width="1.5">
+                  <title>${line.id}: ${v}%</title></circle>`;
+      }).join('');
+      return `<polyline points="${pts}" fill="none" stroke="${line.color}" stroke-width="2" stroke-linejoin="round"/>
+              ${dots}`;
+    }).join('');
+
+    // Legend
+    const legend = lines.map(l => `
+      <span style="display:inline-flex;align-items:center;gap:4px;margin-right:12px;font-size:12px;">
+        <span style="width:16px;height:3px;background:${l.color};display:inline-block;border-radius:2px;"></span>${esc(l.id)}
+      </span>`).join('');
+
+    return `<div class="card" style="margin-bottom:1.25rem;">
+      <div class="card-title">${title}</div>
+      <svg viewBox="0 0 ${w} ${h}" style="width:100%;max-height:220px;">
+        ${gridLines}${xLabels}${linesSVG}
+      </svg>
+      <div style="margin-top:8px;flex-wrap:wrap;display:flex;">${legend}</div>
+    </div>`;
+  };
+
+  area.innerHTML =
+    chartHTML('📈 CLO Achievement Trend (%)', cloLines, sessions) +
+    chartHTML('📈 PLO Achievement Trend (%)', ploLines, sessions) +
+    (filtered.length > 0 ? renderGradeTable(filtered) : '');
+}
+
+function renderGradeTable(reports) {
+  if (!reports.length) return '';
+  const gradeKeys = ['A+','A','A-','B+','B','B-','C+','C','C-','D+','D','E','E-','F'];
+  const rows = reports.map(r => {
+    const gd = safeParseObj(r.GredData);
+    return `<tr>
+      <td><span class="tag tag-blue">${esc(r.KodKursus)}</span></td>
+      <td>${esc(r.Program)}</td>
+      <td>${esc(r.Sesi)}</td>
+      ${gradeKeys.map(g => `<td style="text-align:center;font-size:12px;">${gd[g] || '—'}</td>`).join('')}
+    </tr>`;
+  }).join('');
+  return `<div class="card">
+    <div class="card-title">📊 Student Grade Distribution (%)</div>
+    <div class="table-wrap"><table style="font-size:12px;">
+      <thead><tr><th>Code</th><th>Prog</th><th>Session</th>${gradeKeys.map(g => `<th>${g}</th>`).join('')}</tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+  </div>`;
 }
 
 function computeAvgCloAll(reports) {
@@ -297,6 +506,7 @@ function renderReportsPage() {
       <td style="color:var(--text-muted);font-size:12px;">${i + 1}</td>
       <td><span class="tag tag-blue">${esc(r.KodKursus)}</span></td>
       <td>${esc(r.NamaKursus)}</td>
+      <td><span class="tag tag-gray">${esc(r.Program || '—')}</span></td>
       <td>${esc(r.Sesi)}</td>
       <td>${esc(r.BilPelajar)}</td>
       <td>${statusBadge(r)}</td>
@@ -319,7 +529,7 @@ function renderReportsPage() {
       ${visibleReports.length === 0 ? emptyState('📝', 'No CQI reports yet. Click "Add CQI Report" to start.') : `
       <div class="table-wrap">
         <table>
-          <thead><tr><th>#</th><th>Code</th><th>Course Name</th><th>Session</th><th>Students</th><th>Status</th><th>Action</th></tr></thead>
+          <thead><tr><th>#</th><th>Code</th><th>Course Name</th><th>Programme</th><th>Session</th><th>Students</th><th>Status</th><th>Action</th></tr></thead>
           <tbody id="reports-tbody">${rows}</tbody>
         </table>
       </div>`}
