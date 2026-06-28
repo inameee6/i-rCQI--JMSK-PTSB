@@ -162,7 +162,7 @@ function refreshCurrentPage() {
 const NAV_ITEMS = [
   { sep: 'Main Menu' },
   { id: 'dashboard', icon: '📊', label: 'Dashboard' },
-  { id: 'reports', icon: '📝', label: 'CQI Reports' },
+  { id: 'reports', icon: '📝', label: 'CQI Reports', hideForLecturer: true },
   { id: 'pdfarchive', icon: '🗂️', label: 'PDF Archive' },
   { sep: 'Administration' },
   { id: 'kursus', icon: '🎓', label: 'Course Management', adminOnly: true },
@@ -175,6 +175,7 @@ function renderSidebar() {
   sb.innerHTML = NAV_ITEMS.map(item => {
     if (item.sep) return `<div class="nav-sep">${item.sep}</div>`;
     if (item.adminOnly && currentUser.Peranan !== 'admin') return '';
+    if (item.hideForLecturer && currentUser.Peranan === 'lecturer') return '';
     return `<div class="nav-item" data-page="${item.id}" onclick="showPage('${item.id}')">
       <span class="nav-icon">${item.icon}</span> ${item.label}
     </div>`;
@@ -192,7 +193,12 @@ function showPage(id, silent) {
   setActiveNav(id);
   const main = document.getElementById('main-content');
   if (id === 'dashboard') main.innerHTML = renderDashboard();
-  else if (id === 'reports') main.innerHTML = renderReportsPage();
+  // Lecturer — read only: dashboard and pdfarchive only
+  if (currentUser.Peranan === 'lecturer' && !['dashboard', 'pdfarchive'].includes(id)) {
+    main.innerHTML = `<div class="page-title">Access Restricted</div>
+      <p class="text-muted">Lecturers can only access the Dashboard and PDF Archive.</p>`;
+    return;
+  }
   else if (id === 'pdfarchive') main.innerHTML = renderFullPDFArchivePage();
   else if (id === 'perbandingan') main.innerHTML = renderComparisonPage();
   else if (id === 'laporan') main.innerHTML = renderLaporanPage();
@@ -2354,7 +2360,7 @@ function renderPenggunaPage() {
     <tr>
       <td><span class="tag tag-gray">${esc(u.IC)}</span></td>
       <td>${esc(u.Nama)}</td>
-      <td><span class="tag ${u.Peranan === 'admin' ? 'tag-red' : u.Peranan === 'ketua' ? 'tag-blue' : 'tag-green'}">${roleLabel(u.Peranan)}</span></td>
+      <td><span class="tag ${u.Peranan === 'admin' ? 'tag-red' : u.Peranan === 'ketua' ? 'tag-blue' : u.Peranan === 'lecturer' ? 'tag-gray' : 'tag-green'}">${roleLabel(u.Peranan)}</span></td>
       <td><button class="btn btn-red btn-sm" onclick="deleteUserItem('${u.IC}')">Delete</button></td>
     </tr>`).join('');
 
@@ -2376,7 +2382,8 @@ function renderPenggunaPage() {
 }
 
 function roleLabel(role) {
-  return role === 'admin' ? 'Administrator' : role === 'ketua' ? 'Course Head' : 'Course Coordinator';
+  const labels = { admin: 'Administrator', ketua: 'Course Head', penyelaras: 'Course Coordinator', lecturer: 'Lecturer' };
+  return labels[role] || role;
 }
 
 function openUserForm() {
@@ -2384,12 +2391,13 @@ function openUserForm() {
   root.innerHTML = `
   <div class="modal-bg open">
     <div class="modal modal-sm">
-      <div class="modal-title">👤 Add Pengguna</div>
+      <div class="modal-title">👤 Add User</div>
       <div class="form-group"><label>Staff ID</label><input id="u-ic" maxlength="20" placeholder="e.g.: STF12345" style="text-transform:uppercase;"></div>
-      <div class="form-group"><label>Nama Penuh</label><input id="u-nama"></div>
+      <div class="form-group"><label>Full Name</label><input id="u-nama"></div>
       <div class="form-group">
         <label>Role</label>
         <select id="u-role">
+          <option value="lecturer">Lecturer (Dashboard &amp; PDF only)</option>
           <option value="penyelaras">Course Coordinator</option>
           <option value="ketua">Course Head</option>
           <option value="admin">Administrator</option>
@@ -2407,7 +2415,7 @@ async function saveUserItem() {
   const ic = document.getElementById('u-ic').value.trim().toUpperCase();
   const nama = document.getElementById('u-nama').value.trim();
   if (!ic) { toast('Please enter Staff ID.', 'error'); return; }
-  if (!nama) { toast('Sila isi nama.', 'error'); return; }
+  if (!nama) { toast('Please enter full name.', 'error'); return; }
   const btn = document.getElementById('btn-save-user');
   btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-dark"></span> Menyimpan...';
   try {
