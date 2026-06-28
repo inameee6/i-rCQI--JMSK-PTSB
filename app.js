@@ -282,17 +282,19 @@ function renderReportsPage() {
 
   // Get unique sessions for filter
   const sessions = [...new Set(visibleReports.map(r => r.Sesi).filter(Boolean))].sort().reverse();
-  const filterHTML = sessions.length > 1 ? `
+  const filterHTML = `
     <div class="flex items-center gap-8" style="margin-bottom:1rem;">
       <label class="text-sm" style="white-space:nowrap;font-weight:500;">Filter by Session:</label>
       <select id="session-filter-reports" onchange="filterReportsBySession()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;">
         <option value="">— All Sessions —</option>
         ${sessions.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('')}
       </select>
-    </div>` : '';
+      ${sessions.length === 0 ? '<span class="text-sm text-muted">(No sessions recorded yet)</span>' : ''}
+    </div>`;
 
-  const rows = visibleReports.map(r => `
+  const rows = visibleReports.map((r, i) => `
     <tr class="report-row" data-sesi="${esc(r.Sesi)}">
+      <td style="color:var(--text-muted);font-size:12px;">${i + 1}</td>
       <td><span class="tag tag-blue">${esc(r.KodKursus)}</span></td>
       <td>${esc(r.NamaKursus)}</td>
       <td>${esc(r.Sesi)}</td>
@@ -301,7 +303,7 @@ function renderReportsPage() {
       <td>
         <button class="btn btn-outline btn-sm" onclick="openReportDetail('${r.ID}')">View</button>
         <button class="btn btn-outline btn-sm" onclick="openReportForm('${r.ID}')">Edit</button>
-        <button class="btn btn-outline btn-sm" onclick="duplicateReport('${r.ID}')" title="Duplicate this report">⧉ Dup</button>
+        <button class="btn btn-outline btn-sm" onclick="duplicateReport('${r.ID}')" title="Copy this report to new session">⧉ Copy</button>
         ${currentUser.Peranan === 'admin' ? `<button class="btn btn-red btn-sm" onclick="deleteReport('${r.ID}')">Delete</button>` : ''}
       </td>
     </tr>`).join('');
@@ -317,7 +319,7 @@ function renderReportsPage() {
       ${visibleReports.length === 0 ? emptyState('📝', 'No CQI reports yet. Click "Add CQI Report" to start.') : `
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Code</th><th>Course Name</th><th>Session</th><th>Students</th><th>Status</th><th>Action</th></tr></thead>
+          <thead><tr><th>#</th><th>Code</th><th>Course Name</th><th>Session</th><th>Students</th><th>Status</th><th>Action</th></tr></thead>
           <tbody id="reports-tbody">${rows}</tbody>
         </table>
       </div>`}
@@ -2561,14 +2563,15 @@ function renderPDFArchivePage() {
 
   // Get unique sessions for filter
   const sessions = [...new Set(logs.map(l => l.Sesi).filter(Boolean))].sort().reverse();
-  const filterHTML = sessions.length > 1 ? `
+  const filterHTML = `
     <div class="flex items-center gap-8" style="margin-bottom:1.5rem;">
       <label class="text-sm" style="white-space:nowrap;font-weight:500;">Filter by Session:</label>
       <select id="session-filter-pdf" onchange="filterPDFsBySession()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;">
         <option value="">— All Sessions —</option>
         ${sessions.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('')}
       </select>
-    </div>` : '';
+      ${sessions.length === 0 ? '<span class="text-sm text-muted">(No PDFs yet)</span>' : ''}
+    </div>`;
 
   // Group by KodKursus → Sesi
   const grouped = {};
