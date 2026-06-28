@@ -19,7 +19,17 @@ let kelasList = [];
 let currentPage = 'dashboard';
 let editingReportId = null;
 
-// ===== API HELPER =====
+// ===== ACCESS CONTROL =====
+// Returns filtered reports based on current user's role and assigned course
+function getVisibleReports() {
+  if (!currentUser) return [];
+  // Admin sees all
+  if (currentUser.Peranan === 'admin') return cqiReports;
+  // Penyelaras and Ketua — only see assigned KodKursus
+  const assignedKod = currentUser.KodKursus;
+  if (!assignedKod) return cqiReports; // fallback: show all if not assigned
+  return cqiReports.filter(r => r.KodKursus === assignedKod);
+}
 async function apiGet(action, params) {
   const qs = new URLSearchParams({ action, ...(params || {}) }).toString();
   const res = await fetch(API_URL + '?' + qs);
@@ -195,12 +205,13 @@ window.onload = () => { initAllSigCanvases(); };
    =================================================================== */
 
 function renderDashboard() {
-  const totalReports = cqiReports.length;
-  const fullySigned = cqiReports.filter(r => r.StatusPenyelaras === 'Disahkan' && r.StatusKetua === 'Disahkan').length;
-  const pendingKetua = cqiReports.filter(r => r.StatusPenyelaras === 'Disahkan' && r.StatusKetua !== 'Disahkan').length;
-  const avgClo = computeAvgCloAll();
+  const visibleReports = getVisibleReports();
+  const totalReports = visibleReports.length;
+  const fullySigned = visibleReports.filter(r => r.StatusPenyelaras === 'Disahkan' && r.StatusKetua === 'Disahkan').length;
+  const pendingKetua = visibleReports.filter(r => r.StatusPenyelaras === 'Disahkan' && r.StatusKetua !== 'Disahkan').length;
+  const avgClo = computeAvgCloAll(visibleReports);
 
-  const rows = cqiReports.slice().reverse().slice(0, 8).map(r => `
+  const rows = visibleReports.slice().reverse().slice(0, 8).map(r => `
     <tr>
       <td><span class="tag tag-blue">${esc(r.KodKursus)}</span></td>
       <td>${esc(r.NamaKursus)}</td>
@@ -232,9 +243,10 @@ function renderDashboard() {
     </div>`;
 }
 
-function computeAvgCloAll() {
+function computeAvgCloAll(reports) {
+  const list = reports || getVisibleReports();
   const allClo = [];
-  cqiReports.forEach(r => {
+  list.forEach(r => {
     const clos = safeParseArr(r.CLOData);
     clos.forEach(c => { if (c.pct !== '' && c.pct !== undefined) allClo.push(parseFloat(c.pct) || 0); });
   });
@@ -261,7 +273,8 @@ function emptyState(icon, msg) {
    =================================================================== */
 
 function renderReportsPage() {
-  const rows = cqiReports.map(r => `
+  const visibleReports = getVisibleReports();
+  const rows = visibleReports.map(r => `
     <tr>
       <td><span class="tag tag-blue">${esc(r.KodKursus)}</span></td>
       <td>${esc(r.NamaKursus)}</td>
@@ -282,7 +295,7 @@ function renderReportsPage() {
       <button class="btn btn-blue" onclick="openReportForm()">＋ Add CQI Report</button>
     </div>
     <div class="card">
-      ${cqiReports.length === 0 ? emptyState('📝', 'No CQI reports yet. Click "Add CQI Report" to start.') : `
+      ${visibleReports.length === 0 ? emptyState('📝', 'No CQI reports yet. Click "Add CQI Report" to start.') : `
       <div class="table-wrap">
         <table>
           <thead><tr><th>Kod</th><th>Course Name</th><th>Session</th><th>Students</th><th>Status</th><th>Action</th></tr></thead>
@@ -297,7 +310,7 @@ function renderReportsPage() {
    =================================================================== */
 
 function renderComparisonPage() {
-  const options = cqiReports.map(r => `<option value="${r.ID}">${esc(r.KodKursus)} — ${esc(r.NamaKursus)} (${esc(r.Sesi)})</option>`).join('');
+  const options = getVisibleReports().map(r => `<option value="${r.ID}">${esc(r.KodKursus)} — ${esc(r.NamaKursus)} (${esc(r.Sesi)})</option>`).join('');
   return `
     <div class="page-title">Session Comparison</div>
     <div class="page-sub">Compare CLO &amp; PLO achievement between current and previous sessions.</div>
@@ -1808,12 +1821,39 @@ function generateReportPDF(id) {
 
   // Footer
   doc.setFontSize(7.5); doc.setTextColor(140, 140, 140);
-  doc.text('i-rCQI — Dijana pada: ' + new Date().toLocaleString('ms-MY') + ' | Sulit', margin, 292);
+  doc.text('i-rCQI — Generated: ' + new Date().toLocaleString('en-MY') + ' | Confidential', margin, 292);
 
-  doc.save(`CQI_${r.KodKursus}_${(r.Sesi||'').replace(/[\/\s]/g,'-')}.pdf`);
+  const fileName = `CQI_${r.KodKursus}_${r.Program || ''}_${(r.Sesi||'').replace(/[\/\s]/g,'-')}.pdf`;
 
-  apiPost('logPDF', { data: { KodKursus: r.KodKursus, Sesi: r.Sesi, JanaOleh: currentUser.Nama } }).catch(() => {});
-  toast('PDF berjaya dijana.', 'success');
+  // Download to user's computer
+  doc.save(fileName);
+
+  // Save to Google Drive (auto-replace if exists)
+  toast('PDF generated. Saving to Google Drive...', 'success');
+  const pdfBase64 = btoa(
+    new Uint8Array(doc.output('arraybuffer'))
+      .reduce((data, byte) => data + String.fromCharCode(byte), '')
+  );
+
+  apiPost('savePDF', {
+    data: {
+      base64PDF: pdfBase64,
+      fileName: fileName,
+      jabatan: r.Jabatan || 'Unknown',
+      program: r.Program || 'Unknown',
+      kodKursus: r.KodKursus,
+      sesi: r.Sesi,
+      janaOleh: currentUser.Nama,
+    }
+  }).then(result => {
+    if (result.success) {
+      toast(`✅ PDF saved to Google Drive successfully.`, 'success');
+    } else {
+      toast('PDF downloaded but failed to save to Drive: ' + result.message, 'error');
+    }
+  }).catch(() => {
+    toast('PDF downloaded. Drive save failed — check connection.', 'error');
+  });
 }
 /* ===================================================================
    LAPORAN & MINIT MESYUARAT (modul berasingan, bukan laporan CQI rasmi)
