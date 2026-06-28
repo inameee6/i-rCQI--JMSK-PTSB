@@ -1,4 +1,3 @@
-/* i-rCQI Build 20260628053840 */
 /* ===================================================================
    i-rCQI — APP.JS
    Sambungan ke Google Apps Script (backend) + logik penuh sistem
@@ -98,8 +97,14 @@ async function enterApp() {
   document.getElementById('user-name-top').textContent = currentUser.Nama;
   document.getElementById('user-avatar').textContent = (currentUser.Nama || '').split(' ').map(w => w[0]).slice(0, 2).join('');
   renderSidebar();
-  showPage('dashboard');
+  // Show loading state on dashboard first
+  document.getElementById('main-content').innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:16px;">
+      <div class="spinner spinner-dark" style="width:36px;height:36px;border-width:3px;"></div>
+      <div class="text-muted">Loading system data, please wait...</div>
+    </div>`;
   await loadAllData();
+  showPage('dashboard');
 }
 
 // ===== DATA LOADING =====
@@ -404,11 +409,12 @@ function openReportForm(id) {
   root.innerHTML = `
   <div class="modal-bg open" id="modal-report">
     <div class="modal">
-      <div class="modal-title">${existing ? '✏️ Kemaskini' : '📝 Add'} CQI Reports</div>
+      <div class="modal-title">${existing ? '✏️ Edit' : '📝 Add'} CQI Report</div>
 
-      <!-- 1.0 MAKLUMAT KURSUS -->
+      <!-- 1.0 COURSE INFORMATION -->
       <div class="section-block">
         <div class="card-title mb-0"><span class="card-num">1</span>Course Information</div>
+        ${programKursusList.length === 0 ? `<div class="alert alert-amber">⏳ Data is still loading. Please close and reopen this form in a moment.</div>` : ''}
         <div class="form-grid mt-2">
           <div class="form-group">
             <label>Department</label>
@@ -1306,16 +1312,14 @@ function openReportDetail(id) {
 
         <!-- STEP 1: Coordinator -->
         <div class="mt-2" style="border:2px solid ${step1Done ? 'var(--success)' : 'var(--primary)'};border-radius:10px;padding:14px;">
-          <div class="flex items-center gap-8" style="margin-bottom:8px;">
+          <div class="flex items-center gap-8" style="margin-bottom:10px;">
             <span style="background:${step1Done ? 'var(--success)' : 'var(--primary)'};color:#fff;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;">${step1Done ? '✓' : '1'}</span>
-            <b>Step 1 — Course Coordinator</b>
-            <span style="color:${step1Done ? 'var(--success)' : 'var(--amber)'};font-size:13px;">${step1Done ? '✅ Completed' : '⏳ Pending'}</span>
+            <b>Course Coordinator</b>
           </div>
           ${step1Done ? `
-            <div class="text-sm text-muted">Signed by: <b>${esc(r.SignedByPenyelaras)}</b> — ${fmtDate(r.TarikhPenyelaras)}</div>
+            <div class="text-sm" style="color:var(--success);">✅ Signed by: <b>${esc(r.SignedByPenyelaras)}</b> — ${fmtDate(r.TarikhPenyelaras)}</div>
             ${r.SigPenyelarasData ? `<img src="${r.SigPenyelarasData}" style="max-width:160px;border:1px solid var(--border);border-radius:6px;margin-top:8px;display:block;">` : ''}
           ` : canCoordSign ? `
-            <p class="text-sm text-muted" style="margin-bottom:10px;">Sign below, then click the button to submit to Head of Course.</p>
             <div class="sig-wrap">
               <canvas class="sig-canvas" id="sig-canvas-penyelaras" width="460" height="140"></canvas>
               <div class="sig-hint" id="sig-hint-penyelaras">Sign here</div>
@@ -1326,21 +1330,18 @@ function openReportDetail(id) {
         </div>
 
         <!-- STEP 2: Head of Course -->
-        <div class="mt-2" style="border:2px solid ${isComplete ? 'var(--success)' : isDraft ? 'var(--border)' : 'var(--amber)'};border-radius:10px;padding:14px;${isDraft ? 'opacity:0.6;' : ''}">
-          <div class="flex items-center gap-8" style="margin-bottom:8px;">
+        <div class="mt-2" style="border:2px solid ${isComplete ? 'var(--success)' : isDraft ? 'var(--border)' : 'var(--amber)'};border-radius:10px;padding:14px;">
+          <div class="flex items-center gap-8" style="margin-bottom:10px;">
             <span style="background:${isComplete ? 'var(--success)' : isDraft ? 'var(--gray)' : 'var(--amber)'};color:#fff;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;">${isComplete ? '✓' : '2'}</span>
-            <b>Step 2 — Head of Course</b>
-            <span style="color:${isComplete ? 'var(--success)' : isDraft ? 'var(--gray)' : 'var(--amber)'};font-size:13px;">${isComplete ? '✅ Completed' : isDraft ? '🔒 Locked' : '⏳ Pending'}</span>
+            <b>Head of Course — ${esc(headName)}</b>
           </div>
-          <div class="text-sm text-muted" style="margin-bottom:8px;">Head of Course: <b>${esc(headName)}</b></div>
           ${isComplete ? `
-            <div class="text-sm text-muted">Verified by: <b>${esc(r.SignedByKetua)}</b> — ${fmtDate(r.TarikhKetua)}</div>
+            <div class="text-sm" style="color:var(--success);">✅ Verified by: <b>${esc(r.SignedByKetua)}</b> — ${fmtDate(r.TarikhKetua)}</div>
             ${r.SigKetuaData ? `<img src="${r.SigKetuaData}" style="max-width:160px;border:1px solid var(--border);border-radius:6px;margin-top:8px;display:block;">` : ''}
             ${r.KomenKetua ? `<div class="text-sm mt-1"><b>Comment:</b> ${esc(r.KomenKetua)}</div>` : ''}
           ` : isDraft ? `
-            <div class="text-sm" style="color:var(--gray);">🔒 Complete Step 1 first before this step becomes available.</div>
+            <div class="text-sm" style="color:var(--gray);">🔒 Available after Course Coordinator signs.</div>
           ` : canHeadSign ? `
-            <p class="text-sm text-muted" style="margin-bottom:10px;">Review the report, then sign to verify and approve.</p>
             <div class="sig-wrap">
               <canvas class="sig-canvas" id="sig-canvas-ketua" width="460" height="140"></canvas>
               <div class="sig-hint" id="sig-hint-ketua">Sign here</div>
