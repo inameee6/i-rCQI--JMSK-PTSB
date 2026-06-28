@@ -476,7 +476,13 @@ function openReportForm(id) {
           <div class="form-group"><label>1.4 Number of Students</label><input type="number" id="f-pelajar" value="${esc(existing?.BilPelajar)}"></div>
         </div>
         <div class="mt-2">
-          <div class="flex items-center justify-between"><b class="text-sm">1.2/1.3 Class &amp; Lecturer</b><button class="btn btn-outline btn-sm" type="button" onclick="addLecturerRow()">+ Add</button></div>
+          <div class="flex items-center justify-between"><b class="text-sm">1.2/1.3 Class &amp; Lecturer</b>
+            <div class="flex gap-8">
+              <button class="btn btn-outline btn-sm" type="button" onclick="addLecturerRow()">+ Add Row</button>
+              <button class="btn btn-outline btn-sm" type="button" onclick="openAddLecturerModal()">+ New Lecturer</button>
+              <button class="btn btn-outline btn-sm" type="button" onclick="openAddClassModal()">+ New Class</button>
+            </div>
+          </div>
           <div class="repeat-header" style="grid-template-columns:1fr 1fr 40px;margin-top:6px;">
             <span style="font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;">LECTURER NAME</span>
             <span style="font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;">CLASS NAME</span>
@@ -495,9 +501,10 @@ function openReportForm(id) {
         <div class="form-grid mt-2">
           <div class="form-group"><label>2.1 Meeting Attendance</label>
             <div id="kehadiran-wrap" style="border:1px solid var(--border);border-radius:7px;padding:10px;background:#fff;min-height:44px;">
-              <div id="kehadiran-checkboxes" style="display:flex;flex-wrap:wrap;gap:10px;"></div>
+              <div id="kehadiran-checkboxes" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
               <div id="kehadiran-empty" class="text-sm text-muted">Select course first to display lecturer list.</div>
             </div>
+            <div class="form-hint mt-1">Tick all lecturers who attended the meeting.</div>
           </div>
           <div class="form-group"><label>2.2 Date</label><input type="date" id="f-minit-tarikh" value="${esc(existing?.MinitTarikh)}"></div>
           <div class="form-group"><label>2.3 Time</label><input type="time" id="f-minit-masa" value="${esc(existing?.MinitMasa)}"></div>
@@ -820,8 +827,10 @@ function refreshKehadiranCheckboxes(kod) {
   const existing = editingReportId ? cqiReports.find(r => r.ID === editingReportId) : null;
   const savedKehadiran = existing ? safeParseArr(existing.MinitKehadiran) : [];
   wrap.innerHTML = pList.map(p => `
-    <label style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid var(--border);border-radius:20px;cursor:pointer;font-size:13px;background:#fff;">
-      <input type="checkbox" class="kehadiran-cb" value="${esc(p)}" ${savedKehadiran.includes(p) ? 'checked' : ''} style="cursor:pointer;">
+    <label style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--border);border-radius:20px;cursor:pointer;font-size:13px;background:#fff;transition:all 0.15s;"
+      onmouseover="this.style.background='var(--primary-light)'" onmouseout="this.style.background=this.querySelector('input').checked?'var(--primary-light)':'#fff'">
+      <input type="checkbox" class="kehadiran-cb" value="${esc(p)}" ${savedKehadiran.includes(p) ? 'checked' : ''}
+        style="cursor:pointer;" onchange="this.closest('label').style.background=this.checked?'var(--primary-light)':'#fff';this.closest('label').style.borderColor=this.checked?'var(--primary)':'var(--border)';">
       ${esc(p)}
     </label>`).join('');
 }
@@ -2734,4 +2743,92 @@ async function duplicateReport(id) {
   } catch (err) {
     toast('Error: ' + err.message, 'error');
   }
+}
+
+/* ===================================================================
+   QUICK ADD LECTURER / CLASS MODALS (dari borang laporan CQI)
+   =================================================================== */
+
+function openAddLecturerModal() {
+  const kod = document.getElementById('f-kod')?.value || '';
+  if (!kod) { toast('Please select a course first.', 'error'); return; }
+  const panel = document.createElement('div');
+  panel.className = 'modal-bg open';
+  panel.id = 'modal-quick-add-lecturer';
+  panel.innerHTML = `
+    <div class="modal modal-sm">
+      <div class="modal-title">👨‍🏫 Add New Lecturer</div>
+      <div class="form-group">
+        <label>Lecturer Name</label>
+        <input type="text" id="quick-lecturer-name" placeholder="e.g.: Dr. Ahmad bin Ali" autofocus>
+      </div>
+      <div class="form-hint">Will be added to the lecturer list for course <b>${esc(kod)}</b>.</div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="document.getElementById('modal-quick-add-lecturer').remove()">Cancel</button>
+        <button class="btn btn-blue" id="btn-quick-add-lec" onclick="quickAddLecturer('${esc(kod)}')">Add</button>
+      </div>
+    </div>`;
+  document.body.appendChild(panel);
+  setTimeout(() => document.getElementById('quick-lecturer-name')?.focus(), 100);
+}
+
+async function quickAddLecturer(kod) {
+  const nama = document.getElementById('quick-lecturer-name').value.trim();
+  if (!nama) { toast('Please enter lecturer name.', 'error'); return; }
+  const btn = document.getElementById('btn-quick-add-lec');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-dark"></span>';
+  try {
+    const result = await apiPost('savePensyarah', { data: { KodKursus: kod, NamaPensyarah: nama } });
+    if (result.success) {
+      pensyarahList.push({ ID: result.id || Date.now(), KodKursus: kod, NamaPensyarah: nama });
+      refreshLecturerDatalist(kod);
+      refreshKehadiranCheckboxes(kod);
+      toast(`Lecturer "${nama}" added successfully.`, 'success');
+      document.getElementById('modal-quick-add-lecturer').remove();
+    } else toast(result.message, 'error');
+  } catch (err) { toast('Error: ' + err.message, 'error'); }
+  finally { btn.disabled = false; btn.innerHTML = 'Add'; }
+}
+
+function openAddClassModal() {
+  const kod = document.getElementById('f-kod')?.value || '';
+  const program = document.getElementById('f-program')?.value || '';
+  if (!kod) { toast('Please select a course first.', 'error'); return; }
+  const panel = document.createElement('div');
+  panel.className = 'modal-bg open';
+  panel.id = 'modal-quick-add-class';
+  panel.innerHTML = `
+    <div class="modal modal-sm">
+      <div class="modal-title">🏫 Add New Class</div>
+      <div class="form-group">
+        <label>Class Name</label>
+        <input type="text" id="quick-class-name" placeholder="e.g.: ${esc(program)}1A" autofocus>
+      </div>
+      <div class="form-hint">Will be added to the class list for course <b>${esc(kod)}</b>.</div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="document.getElementById('modal-quick-add-class').remove()">Cancel</button>
+        <button class="btn btn-blue" id="btn-quick-add-cls" onclick="quickAddClass('${esc(kod)}')">Add</button>
+      </div>
+    </div>`;
+  document.body.appendChild(panel);
+  setTimeout(() => document.getElementById('quick-class-name')?.focus(), 100);
+}
+
+async function quickAddClass(kod) {
+  const nama = document.getElementById('quick-class-name').value.trim();
+  if (!nama) { toast('Please enter class name.', 'error'); return; }
+  const btn = document.getElementById('btn-quick-add-cls');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-dark"></span>';
+  try {
+    const result = await apiPost('saveKelas', { data: { KodKursus: kod, NamaKelas: nama } });
+    if (result.success) {
+      if (result.message !== 'Kelas sudah wujud.') {
+        kelasList.push({ ID: result.id || Date.now(), KodKursus: kod, NamaKelas: nama });
+      }
+      refreshLecturerDatalist(kod);
+      toast(`Class "${nama}" added successfully.`, 'success');
+      document.getElementById('modal-quick-add-class').remove();
+    } else toast(result.message, 'error');
+  } catch (err) { toast('Error: ' + err.message, 'error'); }
+  finally { btn.disabled = false; btn.innerHTML = 'Add'; }
 }
