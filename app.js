@@ -1,4 +1,4 @@
-/* i-rCQI app.js — Build 20260627100435 */
+/* i-rCQI app.js — Build 20260628012818 */
 /* ===================================================================
    i-rCQI — APP.JS
    Sambungan ke Google Apps Script (backend) + logik penuh sistem
@@ -621,8 +621,23 @@ function openReportForm(id) {
     document.getElementById('no-course-warning').style.display = 'block';
   }
 
+  // Refresh Jabatan dropdown dynamically (in case data loaded after form opened)
+  refreshJabatanDropdown(existing?.Jabatan, existing?.Program, existing?.KodKursus);
+
   // Trigger auto-calculate jika edit mode (data gred sedia ada)
   if (existing?.GredData) setTimeout(() => autoCalcQO(), 100);
+}
+
+function refreshJabatanDropdown(selectedJabatan, selectedProgram, selectedKod) {
+  const sel = document.getElementById('f-jabatan');
+  if (!sel) return;
+  const jabatanList = [...new Set(programKursusList.map(p => p.Jabatan))].sort();
+  sel.innerHTML = '<option value="">— Select Department —</option>' +
+    jabatanList.map(j => `<option value="${esc(j)}" ${j === selectedJabatan ? 'selected' : ''}>${esc(j)}</option>`).join('');
+  if (selectedJabatan) {
+    populateProgramDropdown(selectedJabatan, selectedProgram);
+    populateKursusDropdown(selectedJabatan, selectedProgram, selectedKod);
+  }
 }
 
 function closeReportModal() {
