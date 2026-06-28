@@ -68,7 +68,7 @@ async function doLogin() {
   errEl.style.display = 'none';
 
   if (!ic) {
-    errEl.textContent = 'Sila masukkan No. Staf.';
+    errEl.textContent = 'Please enter your Staff ID.';
     errEl.style.display = 'block';
     return;
   }
@@ -79,7 +79,7 @@ async function doLogin() {
   try {
     const result = await apiGet('login', { ic, role });
     if (!result.success) {
-      errEl.textContent = result.message || 'No. Staf tidak ditemui.';
+      errEl.textContent = result.message || 'Staff ID not found or role mismatch.';
       errEl.style.display = 'block';
       return;
     }
@@ -2385,10 +2385,10 @@ function openUserForm() {
   <div class="modal-bg open">
     <div class="modal modal-sm">
       <div class="modal-title">👤 Add Pengguna</div>
-      <div class="form-group"><label>No. Staf</label><input id="u-ic" maxlength="20" placeholder="cth: STF12345" style="text-transform:uppercase;"></div>
+      <div class="form-group"><label>Staff ID</label><input id="u-ic" maxlength="20" placeholder="e.g.: STF12345" style="text-transform:uppercase;"></div>
       <div class="form-group"><label>Nama Penuh</label><input id="u-nama"></div>
       <div class="form-group">
-        <label>Peranan</label>
+        <label>Role</label>
         <select id="u-role">
           <option value="penyelaras">Course Coordinator</option>
           <option value="ketua">Course Head</option>
@@ -2406,7 +2406,7 @@ function openUserForm() {
 async function saveUserItem() {
   const ic = document.getElementById('u-ic').value.trim().toUpperCase();
   const nama = document.getElementById('u-nama').value.trim();
-  if (!ic) { toast('Sila isi No. Staf.', 'error'); return; }
+  if (!ic) { toast('Please enter Staff ID.', 'error'); return; }
   if (!nama) { toast('Sila isi nama.', 'error'); return; }
   const btn = document.getElementById('btn-save-user');
   btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-dark"></span> Menyimpan...';
@@ -2889,7 +2889,7 @@ async function savePKNew(jenis) {
   const kod = document.getElementById('pk-kod').value;
   const fieldId = jenis === 'pensyarah' ? 'pk-nama-pensyarah' : 'pk-nama-kelas';
   const nama = document.getElementById(fieldId).value.trim();
-  if (!kod || !nama) { toast('Sila isi semua maklumat.', 'error'); return; }
+  if (!kod || !nama) { toast('Please fill in all required fields.', 'error'); return; }
   const btn = document.getElementById('btn-save-pk2');
   btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-dark"></span> Menyimpan...';
   try {
