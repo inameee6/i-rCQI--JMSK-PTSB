@@ -1,4 +1,4 @@
-/* i-rCQI Build 20260628013522 */
+/* i-rCQI Build 20260628014724 */
 /* ===================================================================
    i-rCQI — APP.JS
    Sambungan ke Google Apps Script (backend) + logik penuh sistem
@@ -488,20 +488,38 @@ function openReportForm(id) {
 
         <div class="mt-2"><b class="text-sm">5.1 Student Grades (% of students)</b>
           <div class="alert alert-info mt-1" style="margin-bottom:8px;font-size:12px;">
-            💡 <b>How to fill:</b> Enter the <b>percentage (%) of students</b> for each grade. Total of all grades must equal <b>100%</b>.
+            💡 <b>How to fill:</b> Enter the <b>percentage (%) of students</b> for each grade. Total of all grades must equal <b>100%</b>. Previous session data will auto-fill when you select a previous session above.
           </div>
           <div class="table-wrap mt-1">
             <table style="font-size:11px;">
-              <thead><tr>${['A+','A','A-','B+','B','B-','C+','C','C-','D+','D','E','E-','F'].map(g=>`<th>${g}</th>`).join('')}<th style="background:var(--primary-light);color:var(--primary);">Jumlah</th></tr></thead>
-              <tbody><tr id="grade-row-inputs">${['A+','A','A-','B+','B','B-','C+','C','C-','D+','D','E','E-','F'].map(g => {
-                const gd = safeParseObj(existing?.GredData);
-                return `<td><input type="number" step="0.1" min="0" max="100" data-grade="${g}" value="${esc(gd[g] || '')}" style="width:48px;padding:4px;font-size:11px;" oninput="if(parseFloat(this.value)<0)this.value=0; autoCalcQO()"></td>`;
-              }).join('')}
-              <td id="grade-total" style="font-weight:700;font-size:12px;color:var(--primary);text-align:center;vertical-align:middle;">0%</td>
-              </tr></tbody>
+              <thead>
+                <tr>
+                  <th style="background:var(--bg2);min-width:80px;">Session</th>
+                  ${['A+','A','A-','B+','B','B-','C+','C','C-','D+','D','E','E-','F'].map(g=>`<th>${g}</th>`).join('')}
+                  <th style="background:var(--primary-light);color:var(--primary);">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style="background:#F0F7FF;">
+                  <td style="font-weight:600;font-size:11px;color:var(--primary);padding:4px 6px;">Current</td>
+                  ${['A+','A','A-','B+','B','B-','C+','C','C-','D+','D','E','E-','F'].map(g => {
+                    const gd = safeParseObj(existing?.GredData);
+                    return `<td><input type="number" step="0.1" min="0" max="100" data-grade="${g}" value="${esc(gd[g] || '')}" style="width:48px;padding:4px;font-size:11px;" oninput="if(parseFloat(this.value)<0)this.value=0; autoCalcQO()"></td>`;
+                  }).join('')}
+                  <td id="grade-total" style="font-weight:700;font-size:12px;color:var(--primary);text-align:center;vertical-align:middle;">0%</td>
+                </tr>
+                <tr style="background:#F8F9FA;">
+                  <td style="font-weight:600;font-size:11px;color:var(--gray);padding:4px 6px;">Previous</td>
+                  ${['A+','A','A-','B+','B','B-','C+','C','C-','D+','D','E','E-','F'].map(g => {
+                    const gdPrev = safeParseObj(existing?.GredDataLepas);
+                    return `<td><input type="number" step="0.1" min="0" max="100" data-grade-prev="${g}" value="${esc(gdPrev[g] || '')}" style="width:48px;padding:4px;font-size:11px;background:#F8F9FA;" readonly></td>`;
+                  }).join('')}
+                  <td id="grade-total-prev" style="font-weight:700;font-size:12px;color:var(--gray);text-align:center;vertical-align:middle;">—</td>
+                </tr>
+              </tbody>
             </table>
           </div>
-          <div id="grade-total-warn" class="hidden" style="color:var(--danger);font-size:12px;margin-top:4px;">⚠️ Jumlah melebihi 100% — sila semak semula nilai yang dimasukkan.</div>
+          <div id="grade-total-warn" class="hidden" style="color:var(--danger);font-size:12px;margin-top:4px;">⚠️ Total exceeds 100% — please check values entered. Make sure you are entering PERCENTAGE (%), not number of students.</div>
           <div class="form-hint mt-1">Total of all grades should equal 100%.</div>
         </div>
 
@@ -799,6 +817,21 @@ function loadPreviousSessionData() {
     if (prevInput && prevPlo) { prevInput.value = prevPlo.pct || ''; updateOcDiff(row.querySelector('.oc-pct')); }
   });
 
+  // Auto-isi baris gred Previous dari laporan sesi lepas
+  const prevGrades = safeParseObj(prevReport.GredData);
+  let prevTotal = 0;
+  document.querySelectorAll('[data-grade-prev]').forEach(inp => {
+    const g = inp.dataset.gradePrev;
+    const val = parseFloat(prevGrades[g] || 0);
+    inp.value = val || '';
+    prevTotal += val;
+  });
+  const prevTotalEl = document.getElementById('grade-total-prev');
+  if (prevTotalEl) {
+    prevTotalEl.textContent = prevTotal > 0 ? prevTotal.toFixed(1) + '%' : '—';
+    prevTotalEl.style.color = prevTotal >= 99 && prevTotal <= 101 ? 'var(--success)' : 'var(--gray)';
+  }
+
   // Auto-isi field Previous Session
   const sesiLepasInput = document.getElementById('f-sesi-lepas');
   if (sesiLepasInput && prevReport.Sesi) sesiLepasInput.value = prevReport.Sesi;
@@ -811,6 +844,11 @@ function clearPreviousData() {
     const prevInput = row.querySelector('.oc-pct-lepas');
     if (prevInput) { prevInput.value = ''; updateOcDiff(row.querySelector('.oc-pct')); }
   });
+  // Clear baris gred Previous
+  document.querySelectorAll('[data-grade-prev]').forEach(inp => inp.value = '');
+  const prevTotalEl = document.getElementById('grade-total-prev');
+  if (prevTotalEl) { prevTotalEl.textContent = '—'; prevTotalEl.style.color = 'var(--gray)'; }
+
   const sel = document.getElementById('prev-session-select');
   if (sel) sel.value = '';
   const sesiLepasInput = document.getElementById('f-sesi-lepas');
@@ -1029,8 +1067,16 @@ function handleFileSelect(input, kind) {
 
 function collectGradeData() {
   const data = {};
-  document.querySelectorAll('#grade-row-inputs input[data-grade]').forEach(inp => {
-    data[inp.dataset.grade] = inp.value || '';
+  document.querySelectorAll('#grade-row-inputs [data-grade], [data-grade]').forEach(inp => {
+    if (inp.dataset.grade) data[inp.dataset.grade] = inp.value || '';
+  });
+  return data;
+}
+
+function collectGradeDataPrev() {
+  const data = {};
+  document.querySelectorAll('[data-grade-prev]').forEach(inp => {
+    data[inp.dataset.gradePrev] = inp.value || '';
   });
   return data;
 }
@@ -1122,6 +1168,7 @@ async function saveReportForm() {
       AktivitiObjektif: document.getElementById('f-akt-objektif').value,
       AktivitiRingkasan: document.getElementById('f-akt-ringkasan').value,
       GredData: JSON.stringify(collectGradeData()),
+      GredDataLepas: JSON.stringify(collectGradeDataPrev()),
       QualityObj1Capai: document.getElementById('f-qo1-capai').value,
       QualityObj1Tindakan: document.getElementById('f-qo1-tindakan').value,
       QualityObj2Capai: document.getElementById('f-qo2-capai').value,
@@ -1507,18 +1554,105 @@ function generateReportPDF(id) {
 
   // 5.0 Student Performance
   sectionTitle('5', 'Student Performance');
-  doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.text('5.1 Gred Pelajar (%)', margin, y); y += 5;
+  doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.text('5.1 Student Grades (% of students)', margin, y); y += 5;
   const grades = safeParseObj(r.GredData);
+  const gradesPrev = safeParseObj(r.GredDataLepas);
   const gradeKeys = ['A+','A','A-','B+','B','B-','C+','C','C-','D+','D','E','E-','F'];
-  checkPageBreak(14);
-  doc.setFillColor(248, 249, 250); doc.rect(margin, y - 4, W - 2 * margin, 8, 'F');
-  doc.setFontSize(7); doc.setFont('helvetica', 'bold');
-  const colW = (W - 2 * margin) / gradeKeys.length;
-  gradeKeys.forEach((g, i) => doc.text(g, margin + i * colW + 1, y));
-  y += 5;
+  const tableW = W - 2 * margin;
+  const labelW = 22;
+  const colW = (tableW - labelW) / gradeKeys.length;
+
+  checkPageBreak(24);
+  // Header row
+  doc.setFillColor(230, 241, 251); doc.rect(margin, y - 4, tableW, 6, 'F');
+  doc.setFontSize(6.5); doc.setFont('helvetica', 'bold');
+  doc.text('Session', margin + 1, y);
+  gradeKeys.forEach((g, i) => doc.text(g, margin + labelW + i * colW + 1, y));
+  doc.text('Total', margin + tableW - 8, y);
+  y += 6;
+
+  // Current session row
+  doc.setFillColor(240, 247, 255); doc.rect(margin, y - 4, tableW, 6, 'F');
+  doc.setFont('helvetica', 'bold'); doc.setTextColor(24, 95, 165);
+  doc.text(r.Sesi || 'Current', margin + 1, y);
+  doc.setFont('helvetica', 'normal'); doc.setTextColor(30, 30, 30);
+  let totalCurr = 0;
+  gradeKeys.forEach((g, i) => { const v = parseFloat(grades[g] || 0); totalCurr += v; doc.text(v > 0 ? v.toFixed(1) : '0', margin + labelW + i * colW + 1, y); });
+  doc.setFont('helvetica', 'bold'); doc.setTextColor(24, 95, 165);
+  doc.text(totalCurr.toFixed(1) + '%', margin + tableW - 8, y);
+  doc.setTextColor(30, 30, 30); y += 6;
+
+  // Previous session row
+  doc.setFillColor(248, 249, 250); doc.rect(margin, y - 4, tableW, 6, 'F');
+  doc.setFont('helvetica', 'bold'); doc.setTextColor(95, 94, 90);
+  doc.text(r.SesiLepas || 'Previous', margin + 1, y);
   doc.setFont('helvetica', 'normal');
-  gradeKeys.forEach((g, i) => doc.text(String(grades[g] || '0'), margin + i * colW + 1, y));
-  y += 9;
+  let totalPrev = 0;
+  gradeKeys.forEach((g, i) => { const v = parseFloat(gradesPrev[g] || 0); totalPrev += v; doc.text(v > 0 ? v.toFixed(1) : '—', margin + labelW + i * colW + 1, y); });
+  doc.setFont('helvetica', 'bold');
+  doc.text(totalPrev > 0 ? totalPrev.toFixed(1) + '%' : '—', margin + tableW - 8, y);
+  doc.setTextColor(30, 30, 30); y += 10;
+
+  // BAR CHART — 2 colours (Current vs Previous)
+  checkPageBreak(55);
+  doc.setFontSize(8); doc.setFont('helvetica', 'bold');
+  doc.text('(Graph: % of students vs Grade)', margin, y); y += 4;
+
+  const chartH = 35;
+  const chartW = tableW - labelW;
+  const chartX = margin + labelW;
+  const chartY = y;
+  const maxVal = Math.max(...gradeKeys.map(g => Math.max(parseFloat(grades[g] || 0), parseFloat(gradesPrev[g] || 0))), 10);
+  const barGroupW = chartW / gradeKeys.length;
+  const barW = barGroupW * 0.35;
+
+  // Chart background & axes
+  doc.setFillColor(250, 250, 250); doc.rect(chartX, chartY, chartW, chartH, 'F');
+  doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.3);
+  doc.rect(chartX, chartY, chartW, chartH);
+
+  // Y-axis gridlines
+  [25, 50, 75, 100].forEach(pct => {
+    if (pct <= maxVal + 5) {
+      const lineY = chartY + chartH - (pct / maxVal) * chartH;
+      doc.setLineDashPattern([1, 1], 0); doc.line(chartX, lineY, chartX + chartW, lineY);
+      doc.setFontSize(5); doc.setFont('helvetica', 'normal'); doc.setTextColor(150, 150, 150);
+      doc.text(pct + '%', margin + 1, lineY + 1);
+    }
+  });
+  doc.setLineDashPattern([], 0); doc.setTextColor(30, 30, 30);
+
+  // Draw bars
+  gradeKeys.forEach((g, i) => {
+    const x = chartX + i * barGroupW;
+    const currVal = parseFloat(grades[g] || 0);
+    const prevVal = parseFloat(gradesPrev[g] || 0);
+
+    // Current bar (blue)
+    if (currVal > 0) {
+      const bH = (currVal / maxVal) * chartH;
+      doc.setFillColor(55, 138, 221);
+      doc.rect(x + barGroupW * 0.05, chartY + chartH - bH, barW, bH, 'F');
+    }
+    // Previous bar (light blue)
+    if (prevVal > 0) {
+      const bH = (prevVal / maxVal) * chartH;
+      doc.setFillColor(181, 212, 244);
+      doc.rect(x + barGroupW * 0.05 + barW + 1, chartY + chartH - bH, barW, bH, 'F');
+    }
+
+    // Grade label
+    doc.setFontSize(5.5); doc.setFont('helvetica', 'normal');
+    doc.text(g, x + barGroupW * 0.15, chartY + chartH + 4);
+  });
+
+  // Legend
+  y = chartY + chartH + 8;
+  doc.setFillColor(55, 138, 221); doc.rect(margin + labelW, y, 8, 3, 'F');
+  doc.setFontSize(6.5); doc.text(r.Sesi || 'Current Session', margin + labelW + 10, y + 2.5);
+  doc.setFillColor(181, 212, 244); doc.rect(margin + labelW + 60, y, 8, 3, 'F');
+  doc.text(r.SesiLepas || 'Previous Session', margin + labelW + 70, y + 2.5);
+  y += 10;
 
   checkPageBreak(14);
   doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.text('5.2 Quality Objectives', margin, y); y += 5;
