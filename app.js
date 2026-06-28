@@ -477,7 +477,11 @@ function openReportForm(id) {
         </div>
         <div class="mt-2">
           <div class="flex items-center justify-between"><b class="text-sm">1.2/1.3 Class &amp; Lecturer</b><button class="btn btn-outline btn-sm" type="button" onclick="addLecturerRow()">+ Add</button></div>
-          <div class="repeat-header" style="grid-template-columns:1fr 1fr 40px;" class="mt-1"><span>Class Name</span><span>Lecturer Name</span><span></span></div>
+          <div class="repeat-header" style="grid-template-columns:1fr 1fr 40px;margin-top:6px;">
+            <span style="font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;">LECTURER NAME</span>
+            <span style="font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;">CLASS NAME</span>
+            <span></span>
+          </div>
           <div id="lecturer-rows"></div>
           <p class="form-hint mt-1">Select from list or type if name/class is not in the list.</p>
         </div>
@@ -907,23 +911,23 @@ function clearPreviousData() {
 }
 
 function refreshLecturerDatalist(kod) {
-  const kList = kelasList.filter(k => k.KodKursus === kod).map(k => k.NamaKelas);
+  const program = document.getElementById('f-program')?.value || '';
+  const allKelas = kelasList.filter(k => k.KodKursus === kod).map(k => k.NamaKelas);
+  const kList = program
+    ? allKelas.filter(k => k.toUpperCase().startsWith(program.toUpperCase()))
+    : allKelas;
   const pList = pensyarahList.filter(p => p.KodKursus === kod).map(p => p.NamaPensyarah);
 
-  // Kemaskini semua datalist kelas dalam baris sedia ada
   document.querySelectorAll('#lecturer-rows .repeat-row').forEach(row => {
     const kelasInput = row.querySelector('.lec-kelas');
     if (kelasInput) {
       const dl = document.getElementById(kelasInput.getAttribute('list'));
       if (dl) dl.innerHTML = kList.map(k => `<option value="${esc(k)}">`).join('');
     }
-    // Kemaskini dropdown pensyarah
-    const pensyarahSel = row.querySelector('.lec-pensyarah');
-    if (pensyarahSel) {
-      const currentVal = pensyarahSel.value;
-      pensyarahSel.innerHTML = `<option value="">— Select Lecturer —</option>` +
-        pList.map(p => `<option value="${esc(p)}" ${p === currentVal ? 'selected' : ''}>${esc(p)}</option>`).join('') +
-        (currentVal && !pList.includes(currentVal) ? `<option value="${esc(currentVal)}" selected>${esc(currentVal)}</option>` : '');
+    const pensyarahInput = row.querySelector('.lec-pensyarah');
+    if (pensyarahInput && pensyarahInput.tagName === 'INPUT') {
+      const dl = document.getElementById(pensyarahInput.getAttribute('list'));
+      if (dl) dl.innerHTML = pList.map(p => `<option value="${esc(p)}">`).join('');
     }
   });
 }
@@ -1043,26 +1047,30 @@ function renderOutcomeRows(kind, items) {
 function addLecturerRow(val) {
   const wrap = document.getElementById('lecturer-rows');
   const kod = document.getElementById('f-kod')?.value || '';
+  const program = document.getElementById('f-program')?.value || '';
 
-  // Senarai pensyarah dari tab Pensyarah (ikut kursus)
+  // Pensyarah list — ikut kod kursus
   const pList = pensyarahList.filter(p => p.KodKursus === kod).map(p => p.NamaPensyarah);
-  // Senarai kelas dari tab Kelas (ikut kursus)
-  const kList = kelasList.filter(k => k.KodKursus === kod).map(k => k.NamaKelas);
+
+  // Kelas list — ikut kod kursus, difilter ikut prefix program
+  const allKelas = kelasList.filter(k => k.KodKursus === kod).map(k => k.NamaKelas);
+  const kList = program
+    ? allKelas.filter(k => k.toUpperCase().startsWith(program.toUpperCase()))
+    : allKelas;
 
   const uid = Date.now() + Math.floor(Math.random() * 1000);
-  const kelas = (val && typeof val === 'object') ? (val.kelas || '') : '';
   const pensyarah = (val && typeof val === 'object') ? (val.pensyarah || '') : (typeof val === 'string' ? val : '');
+  const kelas = (val && typeof val === 'object') ? (val.kelas || '') : '';
 
   const row = document.createElement('div');
   row.className = 'repeat-row';
   row.style.gridTemplateColumns = '1fr 1fr 40px';
   row.innerHTML = `
     <div>
-      <select class="lec-pensyarah" style="width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;">
-        <option value="">— Select Lecturer —</option>
-        ${pList.map(p => `<option value="${esc(p)}" ${p === pensyarah ? 'selected' : ''}>${esc(p)}</option>`).join('')}
-        ${pensyarah && !pList.includes(pensyarah) ? `<option value="${esc(pensyarah)}" selected>${esc(pensyarah)}</option>` : ''}
-      </select>
+      <input type="text" class="lec-pensyarah" value="${esc(pensyarah)}"
+        placeholder="Type or select lecturer" list="pensyarah-list-${uid}" autocomplete="off"
+        onblur="autoSavePensyarah(this, '${esc(kod)}')">
+      <datalist id="pensyarah-list-${uid}">${pList.map(p => `<option value="${esc(p)}">`).join('')}</datalist>
     </div>
     <div>
       <input type="text" class="lec-kelas" value="${esc(kelas)}"
@@ -1072,6 +1080,19 @@ function addLecturerRow(val) {
     </div>
     <button class="btn btn-red btn-sm" type="button" onclick="this.parentElement.remove()">✕</button>`;
   wrap.appendChild(row);
+}
+
+async function autoSavePensyarah(input, kod) {
+  const nama = input.value.trim();
+  if (!nama || !kod) return;
+  if (pensyarahList.some(p => p.KodKursus === kod && p.NamaPensyarah.toLowerCase() === nama.toLowerCase())) return;
+  try {
+    const result = await apiPost('savePensyarah', { data: { KodKursus: kod, NamaPensyarah: nama } });
+    if (result.success) {
+      pensyarahList.push({ ID: result.id, KodKursus: kod, NamaPensyarah: nama });
+      refreshLecturerDatalist(kod);
+    }
+  } catch (e) { /* silent fail */ }
 }
 
 async function autoSaveKelas(input, kod) {
