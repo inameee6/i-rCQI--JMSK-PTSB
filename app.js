@@ -1325,6 +1325,11 @@ function openReportDetail(id) {
               <div class="sig-hint" id="sig-hint-penyelaras">Sign here</div>
             </div>
             <div class="sig-actions mt-1"><button class="btn btn-outline btn-sm" onclick="clearSigCanvas('penyelaras')">Clear</button></div>
+            <div class="form-group mt-1">
+              <label>Date of Signature</label>
+              <input type="date" id="tarikh-penyelaras" value="${new Date().toISOString().split('T')[0]}" style="max-width:200px;">
+              <div class="form-hint">You may change this to reflect the actual signing date.</div>
+            </div>
             <button class="btn btn-green mt-2" onclick="confirmSign('penyelaras','${r.ID}')">✓ Sign &amp; Submit to Head of Course →</button>
           ` : '<div class="text-sm text-muted">⏳ Awaiting coordinator signature.</div>'}
         </div>
@@ -1347,6 +1352,11 @@ function openReportDetail(id) {
               <div class="sig-hint" id="sig-hint-ketua">Sign here</div>
             </div>
             <div class="sig-actions mt-1"><button class="btn btn-outline btn-sm" onclick="clearSigCanvas('ketua')">Clear</button></div>
+            <div class="form-group mt-1">
+              <label>Date of Signature</label>
+              <input type="date" id="tarikh-ketua" value="${new Date().toISOString().split('T')[0]}" style="max-width:200px;">
+              <div class="form-hint">You may change this to reflect the actual signing date.</div>
+            </div>
             <div class="form-group mt-1"><label>Comment (optional)</label><textarea id="komen-ketua" style="min-height:50px;"></textarea></div>
             <button class="btn btn-green mt-1" onclick="confirmSign('ketua','${r.ID}')">✓ Verify &amp; Approve Report</button>
           ` : `<div class="text-sm text-muted">⏳ Awaiting Head of Course action.</div>`}
@@ -1448,22 +1458,33 @@ function clearSigCanvas(role) {
 async function confirmSign(role, reportId) {
   const canvasId = 'sig-canvas-' + role;
   const state = sigCanvasState[canvasId];
-  if (!state || !state.hasSig) { toast('Sila lukis tandatangan dahulu.', 'error'); return; }
+  if (!state || !state.hasSig) { toast('Please draw your signature first.', 'error'); return; }
   const canvas = document.getElementById(canvasId);
   const sigData = canvas.toDataURL('image/png');
   const komen = role === 'ketua' ? (document.getElementById('komen-ketua')?.value || '') : '';
 
+  // Get manual date — fallback to current datetime if not set
+  const dateInput = document.getElementById('tarikh-' + role);
+  const manualDate = dateInput?.value
+    ? new Date(dateInput.value).toISOString()
+    : new Date().toISOString();
+
   try {
-    const result = await apiPost('signReport', { id: reportId, role, signerName: currentUser.Nama, sigData, komen });
+    const result = await apiPost('signReport', {
+      id: reportId, role,
+      signerName: currentUser.Nama,
+      sigData, komen,
+      manualDate
+    });
     if (result.success) {
-      toast('Tandatangan berjaya disimpan.', 'success');
+      toast('Signature saved successfully.', 'success');
       await loadAllData();
       openReportDetail(reportId);
     } else {
-      toast(result.message || 'Gagal menyimpan tandatangan.', 'error');
+      toast(result.message || 'Failed to save signature.', 'error');
     }
   } catch (err) {
-    toast('Ralat: ' + err.message, 'error');
+    toast('Error: ' + err.message, 'error');
   }
 }
 
