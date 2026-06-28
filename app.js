@@ -1,4 +1,4 @@
-/* i-rCQI app.js — Build 20260628012818 */
+/* i-rCQI Build 20260628013522 */
 /* ===================================================================
    i-rCQI — APP.JS
    Sambungan ke Google Apps Script (backend) + logik penuh sistem
@@ -424,7 +424,7 @@ function openReportForm(id) {
             </select>
           </div>
           <div class="form-group full">
-            <label>Kod &amp; Nama Kursus</label>
+            <label>Course Code &amp; Name</label>
             <select id="f-kod" onchange="onKursusChange()" style="margin-bottom:6px;">
               <option value="">— Select Programme first —</option>
             </select>
