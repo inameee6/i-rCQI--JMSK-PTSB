@@ -2471,10 +2471,9 @@ async function removeProgramLink(linkId, kodKursus) {
 
 function renderPensyarahPage() {
   if (currentUser.Peranan !== 'admin') {
-    return `<div class="page-title">Akses Terhad</div><p class="text-muted">Hanya pentadbir boleh mengurus senarai ini.</p>`;
+    return `<div class="page-title">Access Restricted</div><p class="text-muted">Only administrators can manage this list.</p>`;
   }
 
-  // Group by KodKursus for both Pensyarah and Kelas
   const pGrouped = {}, kGrouped = {};
   pensyarahList.forEach(p => { if (!pGrouped[p.KodKursus]) pGrouped[p.KodKursus] = []; pGrouped[p.KodKursus].push(p); });
   kelasList.forEach(k => { if (!kGrouped[k.KodKursus]) kGrouped[k.KodKursus] = []; kGrouped[k.KodKursus].push(k); });
@@ -2486,13 +2485,13 @@ function renderPensyarahPage() {
     const pRows = (pGrouped[kod] || []).map(p => `
       <tr>
         <td>${esc(p.NamaPensyarah)}</td>
-        <td><span class="tag tag-blue">Pensyarah</span></td>
+        <td><span class="tag tag-blue">Lecturer</span></td>
         <td><button class="btn btn-red btn-sm" onclick="deletePItem('${esc(p.ID)}')">Delete</button></td>
       </tr>`).join('');
     const kRows = (kGrouped[kod] || []).map(k => `
       <tr>
         <td>${esc(k.NamaKelas)}</td>
-        <td><span class="tag tag-green">Kelas</span></td>
+        <td><span class="tag tag-green">Class</span></td>
         <td><button class="btn btn-red btn-sm" onclick="deleteKItem('${esc(k.ID)}')">Delete</button></td>
       </tr>`).join('');
     return `
@@ -2501,22 +2500,32 @@ function renderPensyarahPage() {
       <div class="table-wrap">
         <table>
           <thead><tr><th>Name</th><th>Type</th><th></th></tr></thead>
-          <tbody>${pRows}${kRows}${!pRows && !kRows ? '<tr><td colspan="3" class="text-muted">Tiada rekod.</td></tr>' : ''}</tbody>
+          <tbody>${pRows}${kRows}${!pRows && !kRows ? '<tr><td colspan="3" class="text-muted">No records.</td></tr>' : ''}</tbody>
         </table>
       </div>
     </div>`;
   }).join('');
 
-  const courses = courseMasterList.map(c => `<option value="${esc(c.KodKursus)}">${esc(c.KodKursus)} — ${esc(c.NamaKursus)}</option>`).join('');
-
   return `
     <div class="page-title">Lecturers &amp; Classes</div>
-    <div class="page-sub">Urus senarai pensyarah (Admin setup) dan kelas (Admin setup, Penyelaras boleh tambah) mengikut kod kursus.</div>
+    <div class="page-sub">Manage lecturer and class lists by course code.</div>
     <div class="btn-row">
-      <button class="btn btn-blue" onclick="openPKFormNew('pensyarah')">＋ Add Pensyarah</button>
-      <button class="btn btn-outline" onclick="openPKFormNew('kelas')">＋ Add Kelas</button>
+      <button class="btn btn-blue" onclick="openPKFormNew('pensyarah')">＋ Add Lecturer</button>
+      <button class="btn btn-outline" onclick="openPKFormNew('kelas')">＋ Add Class</button>
+      <button class="btn btn-outline" onclick="refreshPensyarahPage()" title="Refresh list from Google Sheets">🔄 Refresh</button>
     </div>
-    ${allKod.length === 0 ? `<div class="card">${emptyState('👨‍🏫', 'No records yet. Klik "+ Add Pensyarah" atau "+ Add Kelas" untuk mula.')}</div>` : cards}`;
+    ${allKod.length === 0 ? `<div class="card">${emptyState('👨‍🏫', 'No records yet. Click "+ Add Lecturer" or "+ Add Class" to start.')}</div>` : cards}`;
+}
+
+async function refreshPensyarahPage() {
+  toast('Refreshing data from Google Sheets...', 'success');
+  try {
+    const [pRes, kRes] = await Promise.all([apiGet('getPensyarah'), apiGet('getKelas')]);
+    if (pRes.success) pensyarahList = pRes.data;
+    if (kRes.success) kelasList = kRes.data;
+    showPage('pensyarah');
+    toast('Data refreshed successfully.', 'success');
+  } catch (err) { toast('Refresh failed: ' + err.message, 'error'); }
 }
 
 function openPKFormNew(jenis) {
@@ -2564,21 +2573,27 @@ async function savePKNew(jenis) {
 }
 
 async function deletePItem(id) {
-  if (!confirm('Delete pensyarah ini?')) return;
+  if (!confirm('Delete this lecturer?')) return;
   try {
     const result = await apiPost('deletePensyarah', { id });
-    if (result.success) { toast('Dipadam.', 'success'); await loadAllData(); showPage('pensyarah'); }
-    else toast(result.message, 'error');
-  } catch (err) { toast('Ralat: ' + err.message, 'error'); }
+    if (result.success) {
+      pensyarahList = pensyarahList.filter(p => String(p.ID) !== String(id));
+      toast('Lecturer deleted.', 'success');
+      showPage('pensyarah');
+    } else toast(result.message, 'error');
+  } catch (err) { toast('Error: ' + err.message, 'error'); }
 }
 
 async function deleteKItem(id) {
-  if (!confirm('Delete kelas ini?')) return;
+  if (!confirm('Delete this class?')) return;
   try {
     const result = await apiPost('deleteKelas', { id });
-    if (result.success) { toast('Dipadam.', 'success'); await loadAllData(); showPage('pensyarah'); }
-    else toast(result.message, 'error');
-  } catch (err) { toast('Ralat: ' + err.message, 'error'); }
+    if (result.success) {
+      kelasList = kelasList.filter(k => String(k.ID) !== String(id));
+      toast('Class deleted.', 'success');
+      showPage('pensyarah');
+    } else toast(result.message, 'error');
+  } catch (err) { toast('Error: ' + err.message, 'error'); }
 }
 
 /* ===================================================================
