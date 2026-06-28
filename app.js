@@ -1,4 +1,4 @@
-/* i-rCQI Build 20260628023208 */
+/* i-rCQI Build 20260628024523 */
 /* ===================================================================
    i-rCQI — APP.JS
    Sambungan ke Google Apps Script (backend) + logik penuh sistem
@@ -432,7 +432,7 @@ function openReportForm(id) {
             <div class="form-hint" id="kursus-hint"></div>
           </div>
           <div class="form-group"><label>Current Session</label><input id="f-sesi" value="${esc(existing?.Sesi)}" placeholder="e.g.: 2:2025/2026"></div>
-          <div class="form-group"><label>Previous Session</label><input id="f-sesi-lepas" value="${esc(existing?.SesiLepas)}" placeholder="e.g.: 1:2025/2026"></div>
+          <input type="hidden" id="f-sesi-lepas" value="${esc(existing?.SesiLepas)}">
           <div class="form-group"><label>1.4 Number of Students</label><input type="number" id="f-pelajar" value="${esc(existing?.BilPelajar)}"></div>
         </div>
         <div class="mt-2">
@@ -567,14 +567,14 @@ function openReportForm(id) {
 
         <div class="mt-2">
           <b class="text-sm">5.3 Course Learning Outcome (CLO)</b>
-          <div class="repeat-header" style="grid-template-columns:70px 1.8fr 1fr 1fr 1fr;" id="clo-header-row"><span>CLO</span><span>Description</span><span>% Current</span><span>% Previous</span><span>% Diff</span></div>
+          <div class="repeat-header" style="grid-template-columns:70px 2.5fr 80px 80px 70px;" id="clo-header-row"><span>CLO</span><span>Description</span><span>% Current</span><span>% Previous</span><span>% Diff</span></div>
           <div id="clo-rows"></div>
           <div class="text-sm text-muted mt-1" id="clo-empty-msg">Select course first to display CLO.</div>
         </div>
 
         <div class="mt-2">
           <b class="text-sm">5.4 Programme Learning Outcome (PLO)</b>
-          <div class="repeat-header" style="grid-template-columns:70px 1.8fr 1fr 1fr 1fr;" id="plo-header-row"><span>PLO</span><span>Description</span><span>% Current</span><span>% Previous</span><span>% Diff</span></div>
+          <div class="repeat-header" style="grid-template-columns:70px 2.5fr 80px 80px 70px;" id="plo-header-row"><span>PLO</span><span>Description</span><span>% Current</span><span>% Previous</span><span>% Diff</span></div>
           <div id="plo-rows"></div>
           <div class="text-sm text-muted mt-1" id="plo-empty-msg">Select Department, Programme &amp; course first to display PLO.</div>
         </div>
@@ -981,13 +981,13 @@ function renderOutcomeRows(kind, items) {
   items.forEach(d => {
     const row = document.createElement('div');
     row.className = 'repeat-row';
-    row.style.gridTemplateColumns = '70px 1.8fr 1fr 1fr 1fr';
+    row.style.gridTemplateColumns = '70px 2.5fr 80px 80px 70px';
     row.innerHTML = `
-      <input type="text" class="oc-id" value="${esc(d.id)}" readonly style="background:#F1EFE8;">
-      <input type="text" class="oc-desc" value="${esc(d.desc)}" readonly style="background:#F1EFE8;">
-      <input type="number" class="oc-pct" value="${esc(d.pct)}" step="0.1" placeholder="%" oninput="updateOcDiff(this)">
-      <input type="number" class="oc-pct-lepas" value="${esc(d.pctLepas)}" step="0.1" placeholder="%" oninput="updateOcDiff(this)">
-      <span class="oc-diff text-sm" style="text-align:center;color:var(--text-muted);">—</span>`;
+      <input type="text" class="oc-id" value="${esc(d.id)}" readonly style="background:#F1EFE8;font-size:12px;">
+      <input type="text" class="oc-desc" value="${esc(d.desc)}" readonly style="background:#F1EFE8;font-size:12px;" title="${esc(d.desc)}">
+      <input type="number" class="oc-pct" value="${esc(d.pct)}" step="0.1" placeholder="%" oninput="updateOcDiff(this)" style="font-size:12px;">
+      <input type="number" class="oc-pct-lepas" value="${esc(d.pctLepas)}" step="0.1" placeholder="%" oninput="updateOcDiff(this)" style="font-size:12px;">
+      <span class="oc-diff text-sm" style="text-align:center;color:var(--text-muted);font-size:11px;">—</span>`;
     wrap.appendChild(row);
     updateOcDiff(row.querySelector('.oc-pct'));
   });
@@ -1667,46 +1667,66 @@ function generateReportPDF(id) {
 
   const clos = safeParseArr(r.CLOData);
   if (clos.length) {
-    checkPageBreak(10 + clos.length * 6);
-    doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.text('5.3 Course Learning Outcome (CLO)', margin, y); y += 5;
-    doc.setFillColor(248, 249, 250); doc.rect(margin, y - 4, W - 2 * margin, 6, 'F');
+    doc.setFontSize(9); doc.setFont('helvetica', 'bold');
+    checkPageBreak(12); doc.text('5.3 Course Learning Outcome (CLO)', margin, y); y += 5;
+    // Header
+    doc.setFillColor(230, 241, 251); doc.rect(margin, y - 4, W - 2 * margin, 6, 'F');
     doc.setFontSize(7); doc.setFont('helvetica', 'bold');
-    doc.text('CLO', margin + 1, y); doc.text('Description', margin + 18, y);
-    doc.text('% Current', margin + 110, y); doc.text('% Previous', margin + 135, y); doc.text('Achieved', margin + 160, y);
+    doc.text('CLO', margin + 1, y);
+    doc.text('Description', margin + 18, y);
+    doc.text('% Current', margin + 118, y);
+    doc.text('% Previous', margin + 143, y);
+    doc.text('% Diff', margin + 168, y);
     y += 6;
     doc.setFont('helvetica', 'normal');
-    clos.forEach(c => {
-      checkPageBreak(6);
+    clos.forEach((c, ci) => {
+      const descLines = doc.splitTextToSize(String(c.desc || ''), 95);
+      const rowH = Math.max(6, descLines.length * 5);
+      checkPageBreak(rowH + 2);
+      if (ci % 2 === 0) { doc.setFillColor(248, 249, 250); doc.rect(margin, y - 4, W - 2 * margin, rowH + 1, 'F'); }
       doc.text(String(c.id || ''), margin + 1, y);
-      doc.text(String(c.desc || '').substring(0, 55), margin + 18, y);
-      doc.text(String(c.pct || '0') + '%', margin + 110, y);
-      doc.text(String(c.pctLepas || '0') + '%', margin + 135, y);
-      doc.text(String(c.capai || ''), margin + 160, y);
-      y += 6;
+      doc.text(descLines, margin + 18, y);
+      doc.text(String(c.pct || '0') + '%', margin + 118, y);
+      doc.text(String(c.pctLepas || '—'), margin + 143, y);
+      const diff = ((parseFloat(c.pct) || 0) - (parseFloat(c.pctLepas) || 0)).toFixed(1);
+      doc.setTextColor(diff > 0 ? 60 : diff < 0 ? 163 : 95, diff > 0 ? 109 : diff < 0 ? 45 : 94, diff > 0 ? 17 : diff < 0 ? 45 : 90);
+      doc.text((diff > 0 ? '+' : '') + diff + '%', margin + 168, y);
+      doc.setTextColor(30, 30, 30);
+      y += rowH + 1;
     });
-    y += 2;
+    y += 3;
   }
 
   const plos = safeParseArr(r.PLOData);
   if (plos.length) {
-    checkPageBreak(10 + plos.length * 6);
-    doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.text('5.4 Programme Learning Outcome (PLO)', margin, y); y += 5;
-    doc.setFillColor(248, 249, 250); doc.rect(margin, y - 4, W - 2 * margin, 6, 'F');
+    doc.setFontSize(9); doc.setFont('helvetica', 'bold');
+    checkPageBreak(12); doc.text('5.4 Programme Learning Outcome (PLO)', margin, y); y += 5;
+    // Header
+    doc.setFillColor(230, 241, 251); doc.rect(margin, y - 4, W - 2 * margin, 6, 'F');
     doc.setFontSize(7); doc.setFont('helvetica', 'bold');
-    doc.text('PLO', margin + 1, y); doc.text('Description', margin + 18, y);
-    doc.text('% Current', margin + 110, y); doc.text('% Previous', margin + 135, y); doc.text('Achieved', margin + 160, y);
+    doc.text('PLO', margin + 1, y);
+    doc.text('Description', margin + 18, y);
+    doc.text('% Current', margin + 118, y);
+    doc.text('% Previous', margin + 143, y);
+    doc.text('% Diff', margin + 168, y);
     y += 6;
     doc.setFont('helvetica', 'normal');
-    plos.forEach(p => {
-      checkPageBreak(6);
+    plos.forEach((p, pi) => {
+      const descLines = doc.splitTextToSize(String(p.desc || ''), 95);
+      const rowH = Math.max(6, descLines.length * 5);
+      checkPageBreak(rowH + 2);
+      if (pi % 2 === 0) { doc.setFillColor(248, 249, 250); doc.rect(margin, y - 4, W - 2 * margin, rowH + 1, 'F'); }
       doc.text(String(p.id || ''), margin + 1, y);
-      doc.text(String(p.desc || '').substring(0, 55), margin + 18, y);
-      doc.text(String(p.pct || '0') + '%', margin + 110, y);
-      doc.text(String(p.pctLepas || '0') + '%', margin + 135, y);
-      doc.text(String(p.capai || ''), margin + 160, y);
-      y += 6;
+      doc.text(descLines, margin + 18, y);
+      doc.text(String(p.pct || '0') + '%', margin + 118, y);
+      doc.text(String(p.pctLepas || '—'), margin + 143, y);
+      const diff = ((parseFloat(p.pct) || 0) - (parseFloat(p.pctLepas) || 0)).toFixed(1);
+      doc.setTextColor(diff > 0 ? 60 : diff < 0 ? 163 : 95, diff > 0 ? 109 : diff < 0 ? 45 : 94, diff > 0 ? 17 : diff < 0 ? 45 : 90);
+      doc.text((diff > 0 ? '+' : '') + diff + '%', margin + 168, y);
+      doc.setTextColor(30, 30, 30);
+      y += rowH + 1;
     });
-    y += 2;
+    y += 3;
   }
 
   // 6.0 Ulasan
