@@ -1,4 +1,4 @@
-/* i-rCQI Build 20260628024523 */
+/* i-rCQI Build 20260628053840 */
 /* ===================================================================
    i-rCQI — APP.JS
    Sambungan ke Google Apps Script (backend) + logik penuh sistem
@@ -708,13 +708,20 @@ function onKursusChange() {
   const kod = document.getElementById('f-kod').value;
   const hintEl = document.getElementById('kursus-hint');
 
-  if (!kod) { clearOutcomeRows(); hintEl.textContent = ''; return; }
+  if (!kod) { clearOutcomeRows(); if (hintEl) hintEl.textContent = ''; return; }
 
   const course = courseMasterList.find(c => c.KodKursus === kod);
   const link = programKursusList.find(p => p.Jabatan === jabatan && p.Program === program && p.KodKursus === kod);
 
   document.getElementById('f-nama').value = course ? course.NamaKursus : '';
-  hintEl.textContent = course ? `Course Name: ${course.NamaKursus}` : '';
+  if (hintEl) hintEl.textContent = course ? `Course Name: ${course.NamaKursus}` : '';
+
+  // Kalau courseMasterList belum load, retry selepas 1 saat
+  if (!course && courseMasterList.length === 0) {
+    if (hintEl) hintEl.textContent = 'Loading course data...';
+    setTimeout(() => onKursusChange(), 1000);
+    return;
+  }
 
   const clos = course ? safeParseArr(course.CLOList) : [];
   const plos = link ? safeParseArr(link.PLOList) : [];
@@ -1297,62 +1304,52 @@ function openReportDetail(id) {
       <div class="section-block">
         <div class="card-title mb-0">Verification &amp; Signatures</div>
 
-        <div class="form-grid mt-2">
-          <!-- Coordinator -->
-          <div style="border:1px solid var(--border);border-radius:8px;padding:12px;">
-            <b class="text-sm">Prepared by (Course Coordinator)</b>
-            <div class="text-sm mt-1 ${r.StatusPenyelaras === 'Disahkan' ? 'text-muted' : ''}" style="color:${r.StatusPenyelaras === 'Disahkan' ? 'var(--success)' : 'var(--amber)'};">
-              ${r.StatusPenyelaras === 'Disahkan'
-                ? `✅ Signed by: <b>${esc(r.SignedByPenyelaras)}</b><br><span class="text-muted">${fmtDate(r.TarikhPenyelaras)}</span>`
-                : '⏳ Pending coordinator signature'}
-            </div>
+        <!-- STEP 1: Coordinator -->
+        <div class="mt-2" style="border:2px solid ${step1Done ? 'var(--success)' : 'var(--primary)'};border-radius:10px;padding:14px;">
+          <div class="flex items-center gap-8" style="margin-bottom:8px;">
+            <span style="background:${step1Done ? 'var(--success)' : 'var(--primary)'};color:#fff;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;">${step1Done ? '✓' : '1'}</span>
+            <b>Step 1 — Course Coordinator</b>
+            <span style="color:${step1Done ? 'var(--success)' : 'var(--amber)'};font-size:13px;">${step1Done ? '✅ Completed' : '⏳ Pending'}</span>
+          </div>
+          ${step1Done ? `
+            <div class="text-sm text-muted">Signed by: <b>${esc(r.SignedByPenyelaras)}</b> — ${fmtDate(r.TarikhPenyelaras)}</div>
             ${r.SigPenyelarasData ? `<img src="${r.SigPenyelarasData}" style="max-width:160px;border:1px solid var(--border);border-radius:6px;margin-top:8px;display:block;">` : ''}
-          </div>
-
-          <!-- Head of Course -->
-          <div style="border:1px solid var(--border);border-radius:8px;padding:12px;${isDraft ? 'opacity:0.5;' : ''}">
-            <b class="text-sm">Verified by (Head of Course)</b>
-            <div class="text-sm mt-1" style="color:var(--text-muted);">
-              <span style="font-weight:600;">${esc(headName)}</span>
-            </div>
-            <div class="text-sm mt-1" style="color:${isComplete ? 'var(--success)' : 'var(--amber)'};">
-              ${isComplete
-                ? `✅ Signed — ${fmtDate(r.TarikhKetua)}`
-                : isDraft ? '🔒 Awaiting coordinator signature first' : '⏳ Pending Head of Course signature'}
-            </div>
-            ${r.SigKetuaData ? `<img src="${r.SigKetuaData}" style="max-width:160px;border:1px solid var(--border);border-radius:6px;margin-top:8px;display:block;">` : ''}
-            ${r.KomenKetua ? `<div class="text-sm mt-1"><b>Comment:</b> ${esc(r.KomenKetua)}</div>` : ''}
-          </div>
-        </div>
-
-        <!-- SIGN PADS -->
-        ${canCoordSign ? `
-          <div class="mt-2" style="border-top:1px solid var(--border);padding-top:12px;">
-            <b class="text-sm">✏️ Your Signature (Course Coordinator)</b>
-            <div class="sig-wrap mt-1">
+          ` : canCoordSign ? `
+            <p class="text-sm text-muted" style="margin-bottom:10px;">Sign below, then click the button to submit to Head of Course.</p>
+            <div class="sig-wrap">
               <canvas class="sig-canvas" id="sig-canvas-penyelaras" width="460" height="140"></canvas>
               <div class="sig-hint" id="sig-hint-penyelaras">Sign here</div>
             </div>
-            <div class="sig-actions"><button class="btn btn-outline btn-sm" onclick="clearSigCanvas('penyelaras')">Clear</button></div>
-            <button class="btn btn-green mt-1" id="btn-coord-sign" onclick="confirmSign('penyelaras','${r.ID}')">✓ Sign &amp; Submit to Head of Course</button>
-          </div>` : ''}
+            <div class="sig-actions mt-1"><button class="btn btn-outline btn-sm" onclick="clearSigCanvas('penyelaras')">Clear</button></div>
+            <button class="btn btn-green mt-2" onclick="confirmSign('penyelaras','${r.ID}')">✓ Sign &amp; Submit to Head of Course →</button>
+          ` : '<div class="text-sm text-muted">⏳ Awaiting coordinator signature.</div>'}
+        </div>
 
-        ${canHeadSign ? `
-          <div class="mt-2" style="border-top:1px solid var(--border);padding-top:12px;">
-            <b class="text-sm">✏️ Your Signature (Head of Course: ${esc(headName)})</b>
-            <div class="sig-wrap mt-1">
+        <!-- STEP 2: Head of Course -->
+        <div class="mt-2" style="border:2px solid ${isComplete ? 'var(--success)' : isDraft ? 'var(--border)' : 'var(--amber)'};border-radius:10px;padding:14px;${isDraft ? 'opacity:0.6;' : ''}">
+          <div class="flex items-center gap-8" style="margin-bottom:8px;">
+            <span style="background:${isComplete ? 'var(--success)' : isDraft ? 'var(--gray)' : 'var(--amber)'};color:#fff;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;">${isComplete ? '✓' : '2'}</span>
+            <b>Step 2 — Head of Course</b>
+            <span style="color:${isComplete ? 'var(--success)' : isDraft ? 'var(--gray)' : 'var(--amber)'};font-size:13px;">${isComplete ? '✅ Completed' : isDraft ? '🔒 Locked' : '⏳ Pending'}</span>
+          </div>
+          <div class="text-sm text-muted" style="margin-bottom:8px;">Head of Course: <b>${esc(headName)}</b></div>
+          ${isComplete ? `
+            <div class="text-sm text-muted">Verified by: <b>${esc(r.SignedByKetua)}</b> — ${fmtDate(r.TarikhKetua)}</div>
+            ${r.SigKetuaData ? `<img src="${r.SigKetuaData}" style="max-width:160px;border:1px solid var(--border);border-radius:6px;margin-top:8px;display:block;">` : ''}
+            ${r.KomenKetua ? `<div class="text-sm mt-1"><b>Comment:</b> ${esc(r.KomenKetua)}</div>` : ''}
+          ` : isDraft ? `
+            <div class="text-sm" style="color:var(--gray);">🔒 Complete Step 1 first before this step becomes available.</div>
+          ` : canHeadSign ? `
+            <p class="text-sm text-muted" style="margin-bottom:10px;">Review the report, then sign to verify and approve.</p>
+            <div class="sig-wrap">
               <canvas class="sig-canvas" id="sig-canvas-ketua" width="460" height="140"></canvas>
               <div class="sig-hint" id="sig-hint-ketua">Sign here</div>
             </div>
-            <div class="sig-actions"><button class="btn btn-outline btn-sm" onclick="clearSigCanvas('ketua')">Clear</button></div>
+            <div class="sig-actions mt-1"><button class="btn btn-outline btn-sm" onclick="clearSigCanvas('ketua')">Clear</button></div>
             <div class="form-group mt-1"><label>Comment (optional)</label><textarea id="komen-ketua" style="min-height:50px;"></textarea></div>
-            <button class="btn btn-green mt-1" onclick="confirmSign('ketua','${r.ID}')">✓ Verify &amp; Sign</button>
-          </div>` : ''}
-
-        ${!canCoordSign && !canHeadSign && !isComplete ? `
-          <div class="alert alert-amber mt-2">
-            ${isDraft ? '⏳ Waiting for coordinator to sign and submit.' : '⏳ Submitted. Waiting for Head of Course to verify.'}
-          </div>` : ''}
+            <button class="btn btn-green mt-1" onclick="confirmSign('ketua','${r.ID}')">✓ Verify &amp; Approve Report</button>
+          ` : `<div class="text-sm text-muted">⏳ Awaiting Head of Course action.</div>`}
+        </div>
       </div>
 
       <div class="modal-footer">
