@@ -500,8 +500,8 @@ function openReportForm(id) {
         <div class="card-title mb-0"><span class="card-num">2</span>Discussion Minutes</div>
         <div class="form-grid mt-2">
           <div class="form-group"><label>2.1 Meeting Attendance</label>
-            <div id="kehadiran-wrap" style="border:1px solid var(--border);border-radius:7px;padding:10px;background:#fff;min-height:44px;">
-              <div id="kehadiran-checkboxes" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+            <div id="kehadiran-wrap" style="border:1px solid var(--border);border-radius:7px;padding:10px;background:#fff;min-height:44px;max-height:160px;overflow-y:auto;">
+              <div id="kehadiran-checkboxes" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;"></div>
               <div id="kehadiran-empty" class="text-sm text-muted">Select course first to display lecturer list.</div>
             </div>
             <div class="form-hint mt-1">Tick all lecturers who attended the meeting.</div>
@@ -827,10 +827,11 @@ function refreshKehadiranCheckboxes(kod) {
   const existing = editingReportId ? cqiReports.find(r => r.ID === editingReportId) : null;
   const savedKehadiran = existing ? safeParseArr(existing.MinitKehadiran) : [];
   wrap.innerHTML = pList.map(p => `
-    <label style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--border);border-radius:20px;cursor:pointer;font-size:13px;background:#fff;transition:all 0.15s;"
-      onmouseover="this.style.background='var(--primary-light)'" onmouseout="this.style.background=this.querySelector('input').checked?'var(--primary-light)':'#fff'">
+    <label style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border:1px solid var(--border);border-radius:20px;cursor:pointer;font-size:13px;background:#fff;white-space:nowrap;transition:all 0.15s;"
+      onmouseover="this.style.background='var(--primary-light)'" onmouseout="if(!this.querySelector('input').checked)this.style.background='#fff'">
       <input type="checkbox" class="kehadiran-cb" value="${esc(p)}" ${savedKehadiran.includes(p) ? 'checked' : ''}
-        style="cursor:pointer;" onchange="this.closest('label').style.background=this.checked?'var(--primary-light)':'#fff';this.closest('label').style.borderColor=this.checked?'var(--primary)':'var(--border)';">
+        style="cursor:pointer;width:14px;height:14px;"
+        onchange="this.closest('label').style.background=this.checked?'var(--primary-light)':'#fff';this.closest('label').style.borderColor=this.checked?'var(--primary)':'var(--border)';">
       ${esc(p)}
     </label>`).join('');
 }
