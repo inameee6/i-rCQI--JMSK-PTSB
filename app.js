@@ -279,8 +279,20 @@ function emptyState(icon, msg) {
 
 function renderReportsPage() {
   const visibleReports = getVisibleReports();
+
+  // Get unique sessions for filter
+  const sessions = [...new Set(visibleReports.map(r => r.Sesi).filter(Boolean))].sort().reverse();
+  const filterHTML = sessions.length > 1 ? `
+    <div class="flex items-center gap-8" style="margin-bottom:1rem;">
+      <label class="text-sm" style="white-space:nowrap;font-weight:500;">Filter by Session:</label>
+      <select id="session-filter-reports" onchange="filterReportsBySession()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;">
+        <option value="">— All Sessions —</option>
+        ${sessions.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('')}
+      </select>
+    </div>` : '';
+
   const rows = visibleReports.map(r => `
-    <tr>
+    <tr class="report-row" data-sesi="${esc(r.Sesi)}">
       <td><span class="tag tag-blue">${esc(r.KodKursus)}</span></td>
       <td>${esc(r.NamaKursus)}</td>
       <td>${esc(r.Sesi)}</td>
@@ -289,6 +301,7 @@ function renderReportsPage() {
       <td>
         <button class="btn btn-outline btn-sm" onclick="openReportDetail('${r.ID}')">View</button>
         <button class="btn btn-outline btn-sm" onclick="openReportForm('${r.ID}')">Edit</button>
+        <button class="btn btn-outline btn-sm" onclick="duplicateReport('${r.ID}')" title="Duplicate this report">⧉ Dup</button>
         ${currentUser.Peranan === 'admin' ? `<button class="btn btn-red btn-sm" onclick="deleteReport('${r.ID}')">Delete</button>` : ''}
       </td>
     </tr>`).join('');
@@ -300,11 +313,12 @@ function renderReportsPage() {
       <button class="btn btn-blue" onclick="openReportForm()">＋ Add CQI Report</button>
     </div>
     <div class="card">
+      ${filterHTML}
       ${visibleReports.length === 0 ? emptyState('📝', 'No CQI reports yet. Click "Add CQI Report" to start.') : `
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Kod</th><th>Course Name</th><th>Session</th><th>Students</th><th>Status</th><th>Action</th></tr></thead>
-          <tbody>${rows}</tbody>
+          <thead><tr><th>Code</th><th>Course Name</th><th>Session</th><th>Students</th><th>Status</th><th>Action</th></tr></thead>
+          <tbody id="reports-tbody">${rows}</tbody>
         </table>
       </div>`}
     </div>`;
@@ -2539,12 +2553,22 @@ async function deleteKItem(id) {
    =================================================================== */
 
 function renderPDFArchivePage() {
-  // Filter ikut akses pengguna
   const assignedKod = currentUser.KodKursus;
   let logs = pdfLogList.slice().reverse();
   if (currentUser.Peranan !== 'admin' && assignedKod) {
     logs = logs.filter(l => l.KodKursus === assignedKod);
   }
+
+  // Get unique sessions for filter
+  const sessions = [...new Set(logs.map(l => l.Sesi).filter(Boolean))].sort().reverse();
+  const filterHTML = sessions.length > 1 ? `
+    <div class="flex items-center gap-8" style="margin-bottom:1.5rem;">
+      <label class="text-sm" style="white-space:nowrap;font-weight:500;">Filter by Session:</label>
+      <select id="session-filter-pdf" onchange="filterPDFsBySession()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;">
+        <option value="">— All Sessions —</option>
+        ${sessions.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('')}
+      </select>
+    </div>` : '';
 
   // Group by KodKursus → Sesi
   const grouped = {};
@@ -2557,7 +2581,6 @@ function renderPDFArchivePage() {
   const cards = Object.keys(grouped).map(key => {
     const [kod, sesi] = key.split('|');
     const items = grouped[key];
-    // Only show latest per program (most recent generate)
     const rows = items.map(l => `
       <tr>
         <td>${esc(l.NamaFail || `CQI_${l.KodKursus}_${l.Sesi}`)}</td>
@@ -2571,7 +2594,7 @@ function renderPDFArchivePage() {
       </tr>`).join('');
 
     return `
-    <div class="card">
+    <div class="card pdf-archive-card" data-sesi="${esc(sesi)}">
       <div class="card-title">
         <span class="tag tag-blue">${esc(kod)}</span>
         <span style="margin-left:8px;">Session: ${esc(sesi)}</span>
@@ -2588,7 +2611,103 @@ function renderPDFArchivePage() {
   return `
     <div class="page-title">PDF Archive</div>
     <div class="page-sub">All generated CQI Report PDFs. Click "Open PDF" to view directly from Google Drive.</div>
+    ${filterHTML}
     ${logs.length === 0
       ? `<div class="card">${emptyState('🗂️', 'No PDF reports generated yet. Generate a PDF from a fully verified CQI Report.')}</div>`
       : cards}`;
+}
+
+/* ===================================================================
+   SESSION FILTER & DUPLICATE FUNCTIONS
+   =================================================================== */
+
+function filterReportsBySession() {
+  const sel = document.getElementById('session-filter-reports');
+  const val = sel?.value || '';
+  document.querySelectorAll('#reports-tbody .report-row').forEach(row => {
+    const sesi = row.getAttribute('data-sesi') || '';
+    row.style.display = (!val || sesi === val) ? '' : 'none';
+  });
+}
+
+function filterPDFsBySession() {
+  const sel = document.getElementById('session-filter-pdf');
+  const val = sel?.value || '';
+  document.querySelectorAll('.pdf-archive-card').forEach(card => {
+    const sesi = card.getAttribute('data-sesi') || '';
+    card.style.display = (!val || sesi === val) ? '' : 'none';
+  });
+}
+
+async function duplicateReport(id) {
+  const r = cqiReports.find(x => x.ID === id);
+  if (!r) return;
+
+  if (!confirm(`Duplicate report "${r.KodKursus} — ${r.Sesi}"?\n\nSection 5 (Student Performance, CLO%, PLO%) will be cleared.\nSections 1-4, 6 & 7 (including attachments) will be copied.\nA new Draft will be created.`)) return;
+
+  // Build duplicated data — keep sections 1,2,3,4,6 — clear section 5 and signatures
+  const duplicated = {
+    // Section 1 — Course Info
+    Jabatan: r.Jabatan,
+    Program: r.Program,
+    KodKursus: r.KodKursus,
+    NamaKursus: r.NamaKursus,
+    Pensyarah: r.Pensyarah,
+    SesiLepas: r.Sesi, // previous session becomes current's "sesi lepas"
+    BilPelajar: r.BilPelajar,
+    // Section 2 — Minutes (keep venue & attendance, clear date/time for new session)
+    MinitKehadiran: r.MinitKehadiran,
+    MinitTarikh: '',
+    MinitMasa: '',
+    MinitTempat: r.MinitTempat,
+    // Section 3 — Issues
+    IsuCLO: r.IsuCLO,
+    IsuPLO: r.IsuPLO,
+    // Section 4 — Activity
+    AktivitiNama: r.AktivitiNama,
+    AktivitiTarikh: '',
+    AktivitiBilPelajar: '',
+    AktivitiObjektif: r.AktivitiObjektif,
+    AktivitiRingkasan: r.AktivitiRingkasan,
+    // Section 5 — CLEARED
+    GredData: '{}',
+    QualityObj1Capai: '',
+    QualityObj1Tindakan: '',
+    QualityObj2Capai: '',
+    QualityObj2Tindakan: '',
+    CLOData: JSON.stringify(safeParseArr(r.CLOData).map(c => ({ ...c, pct: '', pctLepas: c.pct || '' }))),
+    PLOData: JSON.stringify(safeParseArr(r.PLOData).map(p => ({ ...p, pct: '', pctLepas: p.pct || '' }))),
+    // Section 6 — Comments
+    Ulasan: r.Ulasan,
+    Cadangan: r.Cadangan,
+    // Section 7 — Keep attachments (usually same for same course)
+    LampiranMinitURL: r.LampiranMinitURL || '',
+    LampiranAktivitiURL: r.LampiranAktivitiURL || '',
+    // Signatures — cleared, new draft
+    StatusPenyelaras: 'Draf',
+    StatusKetua: 'Menunggu',
+    SignedByPenyelaras: '',
+    SigPenyelarasData: '',
+    TarikhPenyelaras: '',
+    SignedByKetua: '',
+    SigKetuaData: '',
+    TarikhKetua: '',
+    KomenKetua: '',
+    CreatedBy: currentUser.Nama,
+    Sesi: '', // penyelaras will fill new session
+  };
+
+  try {
+    const result = await apiPost('saveCQIReport', { data: duplicated });
+    if (result.success) {
+      toast('Report duplicated successfully. Opening edit form...', 'success');
+      await loadAllData();
+      // Open edit form for the new duplicated report
+      setTimeout(() => openReportForm(result.id), 800);
+    } else {
+      toast(result.message || 'Failed to duplicate.', 'error');
+    }
+  } catch (err) {
+    toast('Error: ' + err.message, 'error');
+  }
 }
