@@ -1,4 +1,4 @@
-/* i-rCQI Build 20260628022348 */
+/* i-rCQI Build 20260628023208 */
 /* ===================================================================
    i-rCQI — APP.JS
    Sambungan ke Google Apps Script (backend) + logik penuh sistem
@@ -577,8 +577,6 @@ function openReportForm(id) {
           <div class="repeat-header" style="grid-template-columns:70px 1.8fr 1fr 1fr 1fr;" id="plo-header-row"><span>PLO</span><span>Description</span><span>% Current</span><span>% Previous</span><span>% Diff</span></div>
           <div id="plo-rows"></div>
           <div class="text-sm text-muted mt-1" id="plo-empty-msg">Select Department, Programme &amp; course first to display PLO.</div>
-        </div>
-
         </div>
       </div>
 
