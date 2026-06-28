@@ -1,4 +1,4 @@
-/* i-rCQI Build 20260628014724 */
+/* i-rCQI Build 20260628021520 */
 /* ===================================================================
    i-rCQI — APP.JS
    Sambungan ke Google Apps Script (backend) + logik penuh sistem
@@ -555,15 +555,6 @@ function openReportForm(id) {
 
         <div class="mt-2">
           <b class="text-sm">5.3 Course Learning Outcome (CLO)</b>
-          <div class="section-block mt-1" style="background:var(--amber-light);padding:10px 12px;">
-            <div class="flex items-center gap-8">
-              <span class="text-sm" style="white-space:nowrap;color:var(--amber);font-weight:600;">📂 Previous Session Data:</span>
-              <select id="prev-session-select" style="flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;" onchange="loadPreviousSessionData()">
-                <option value="">— Select previous session to auto-fill % Previous —</option>
-              </select>
-              <button class="btn btn-outline btn-sm" onclick="clearPreviousData()" title="Clear previous session data">✕ Clear</button>
-            </div>
-          </div>
           <div class="repeat-header" style="grid-template-columns:70px 1.8fr 1fr 1fr 1fr;" id="clo-header-row"><span>CLO</span><span>Description</span><span>% Current</span><span>% Previous</span><span>% Diff</span></div>
           <div id="clo-rows"></div>
           <div class="text-sm text-muted mt-1" id="clo-empty-msg">Select course first to display CLO.</div>
@@ -575,9 +566,21 @@ function openReportForm(id) {
           <div id="plo-rows"></div>
           <div class="text-sm text-muted mt-1" id="plo-empty-msg">Select Department, Programme &amp; course first to display PLO.</div>
         </div>
+
+        <!-- Previous Session Comparison — placed after current data filled -->
+        <div class="section-block mt-2" style="background:var(--amber-light);border:1px solid #FAC775;">
+          <b class="text-sm" style="color:var(--amber);">📂 Previous Session Comparison</b>
+          <p class="text-sm mt-1" style="color:var(--amber);margin-bottom:8px;">Fill in all current data above first, then select a previous session to auto-fill comparison data.</p>
+          <div class="flex items-center gap-8">
+            <select id="prev-session-select" style="flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;" onchange="loadPreviousSessionData()">
+              <option value="">— Select previous session —</option>
+            </select>
+            <button class="btn btn-outline btn-sm" onclick="clearPreviousData()">✕ Clear</button>
+          </div>
+        </div>
       </div>
 
-      <!-- 6.0 ULASAN -->
+      <!-- 6.0 COMMENTS -->
       <div class="section-block">
         <div class="card-title mb-0"><span class="card-num">6</span>Comments &amp; Recommendations</div>
         <div class="form-grid mt-2">
