@@ -2088,13 +2088,39 @@ function generateReportPDF(id) {
   doc.text(r.SesiLepas || 'Previous Session', margin + labelW + 70, y + 2.5);
   y += 10;
 
-  checkPageBreak(14);
-  doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.text('5.2 Quality Objectives', margin, y); y += 5;
+  checkPageBreak(34);
+  doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 30, 30); doc.text('5.2 Quality Objectives', margin, y); y += 5;
   const qo1Th = parseFloat(courseMasterList.find(c => c.KodKursus === r.KodKursus)?.QO1Threshold) || 90;
   const qo2Th = parseFloat(courseMasterList.find(c => c.KodKursus === r.KodKursus)?.QO2Threshold) || 25;
-  doc.setFontSize(8); doc.setFont('helvetica', 'normal');
-  doc.text(`• ≥${qo1Th}% students achieved grade D and above: ` + (r.QualityObj1Capai || '—') + (r.QualityObj1Tindakan ? ' (' + r.QualityObj1Tindakan + ')' : ''), margin, y); y += 5;
-  doc.text(`• ≥${qo2Th}% students achieved grade B and above: ` + (r.QualityObj2Capai || '—') + (r.QualityObj2Tindakan ? ' (' + r.QualityObj2Tindakan + ')' : ''), margin, y); y += 7;
+
+  // --- Quality Objectives table ---
+  const _qoX = margin, _qoW = W - 2 * margin;
+  const _qoCol = [78, 22, 24, _qoW - 124];                 // column widths (mm)
+  const _qoColX = [_qoX, _qoX + 78, _qoX + 100, _qoX + 124];
+  const _qoHead = ['Quality Objective', 'Target', 'Achieved (%)', 'Preventive/Corrective Action'];
+  const _qoRows = [
+    ['Students achieving grade D and above', qo1Th + '%', (r.QualityObj1Capai || '—'), (r.QualityObj1Tindakan || '—')],
+    ['Students achieving grade B and above', qo2Th + '%', (r.QualityObj2Capai || '—'), (r.QualityObj2Tindakan || '—')]
+  ];
+  // header row
+  doc.setFillColor(230, 241, 251); doc.rect(_qoX, y, _qoW, 7, 'F');
+  doc.setFontSize(7.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(12, 68, 124);
+  _qoHead.forEach((h, i) => doc.text(h, _qoColX[i] + 2, y + 4.7));
+  y += 7;
+  // body rows
+  doc.setFont('helvetica', 'normal'); doc.setTextColor(30, 30, 30);
+  _qoRows.forEach(row => {
+    const cells = row.map((val, i) => doc.splitTextToSize(String(val), _qoCol[i] - 4));
+    const rowH = Math.max(6, ...cells.map(c => c.length * 4)) + 2;
+    checkPageBreak(rowH);
+    doc.setDrawColor(210, 210, 210); doc.setLineWidth(0.2);
+    doc.rect(_qoX, y, _qoW, rowH);
+    _qoColX.slice(1).forEach(cx => doc.line(cx, y, cx, y + rowH));
+    cells.forEach((lines, i) => doc.text(lines, _qoColX[i] + 2, y + 4.5));
+    y += rowH;
+  });
+  y += 5;
+  doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(30, 30, 30);
 
   const clos = safeParseArr(r.CLOData);
   if (clos.length) {
@@ -2218,9 +2244,7 @@ function generateReportPDF(id) {
     doc.text(komenLines, rightX, y);
   }
 
-  // Footer
-  doc.setFontSize(7.5); doc.setTextColor(140, 140, 140);
-  doc.text('i-rCQI — Generated: ' + new Date().toLocaleString('en-MY') + ' | Confidential', margin, 292);
+  // (Footer dibuang atas permintaan pengguna)
 
   const fileName = `CQI_${r.KodKursus}_${r.Program || ''}_${(r.Sesi||'').replace(/[\/\s]/g,'-')}.pdf`;
 
