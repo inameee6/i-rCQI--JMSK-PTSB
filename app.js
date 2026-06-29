@@ -1920,13 +1920,14 @@ function generateReportPDF(id) {
     if (y + needed > 280) { doc.addPage(); y = margin; }
   }
   function sectionTitle(num, title) {
-    checkPageBreak(12);
+    y += 5;            // jarak lebih lapang antara seksyen
+    checkPageBreak(13);
     doc.setFillColor(230, 241, 251);
     doc.rect(margin, y, W - 2 * margin, 7, 'F');
     doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor(12, 68, 124);
     doc.text(num + '.0  ' + title, margin + 2, y + 5);
     doc.setTextColor(30, 30, 30);
-    y += 11;
+    y += 12;
   }
   function fieldRow(label, value, width) {
     checkPageBreak(7);
@@ -1935,7 +1936,7 @@ function generateReportPDF(id) {
     doc.setFont('helvetica', 'normal');
     const lines = doc.splitTextToSize(String(value || '—'), (width || (W - 2 * margin - 55)));
     doc.text(lines, margin + 55, y);
-    y += Math.max(6, lines.length * 5);
+    y += Math.max(7, lines.length * 5.2);
   }
 
   // Header — Logo PTSB + tajuk rasmi
@@ -1946,7 +1947,7 @@ function generateReportPDF(id) {
   doc.text('LAPORAN CONTINUOUS QUALITY', W - margin, 12, { align: 'right' });
   doc.text('IMPROVEMENT (CQI)', W - margin, 18, { align: 'right' });
   doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(90, 90, 90);
-  doc.text('Sesi: ' + (r.Sesi || '—'), W - margin, 24, { align: 'right' });
+  doc.text('Session: ' + (r.Sesi || '—'), W - margin, 24, { align: 'right' });
   const _headBottom = 8 + _logoH + 2;
   doc.setDrawColor(24, 95, 165); doc.setLineWidth(0.8);
   doc.line(margin, _headBottom, W - margin, _headBottom);
@@ -1956,34 +1957,34 @@ function generateReportPDF(id) {
   // 1.0 Course Information
   sectionTitle('1', 'Course Information');
   fieldRow('Program:', r.Program);
-  fieldRow('Kod & Course Name:', r.KodKursus + ' — ' + r.NamaKursus);
+  fieldRow('Code & Course Name:', r.KodKursus + ' — ' + r.NamaKursus);
   const lecturers = safeParseArr(r.Pensyarah);
-  fieldRow('Kelas & Pensyarah:', lecturers.map(l => typeof l === 'object' ? `${l.kelas} — ${l.pensyarah}` : l).join('; ') || '—');
-  fieldRow('Bilangan Pelajar:', r.BilPelajar);
+  fieldRow('Class & Lecturer:', lecturers.map(l => typeof l === 'object' ? `${l.kelas} — ${l.pensyarah}` : l).join('; ') || '—');
+  fieldRow('Number of Students:', r.BilPelajar);
   y += 2;
 
   // 2.0 Discussion Minutes
   sectionTitle('2', 'Discussion Minutes');
   const kehadiranArr = safeParseArr(r.MinitKehadiran);
-  fieldRow('Kehadiran:', kehadiranArr.length ? kehadiranArr.join(', ') : (r.MinitKehadiran || '—'));
-  fieldRow('Tarikh:', r.MinitTarikh);
-  fieldRow('Masa:', r.MinitMasa);
-  fieldRow('Tempat:', r.MinitTempat);
+  fieldRow('Attendance:', kehadiranArr.length ? kehadiranArr.join(', ') : (r.MinitKehadiran || '—'));
+  fieldRow('Date:', r.MinitTarikh);
+  fieldRow('Time:', r.MinitMasa);
+  fieldRow('Venue:', r.MinitTempat);
   y += 2;
 
   // 3.0 Isu CLO & PLO
-  sectionTitle('3', 'Isu / Masalah CLO & PLO');
-  fieldRow('Isu CLO:', r.IsuCLO, W - 2 * margin - 30);
-  fieldRow('Isu PLO:', r.IsuPLO, W - 2 * margin - 30);
+  sectionTitle('3', 'CLO & PLO Issues');
+  fieldRow('CLO Issues:', r.IsuCLO, W - 2 * margin - 30);
+  fieldRow('PLO Issues:', r.IsuPLO, W - 2 * margin - 30);
   y += 2;
 
   // 4.0 Aktiviti CQI
   sectionTitle('4', 'CQI Programme / Activity / Task');
-  fieldRow('Nama Aktiviti:', r.AktivitiNama);
-  fieldRow('Tarikh Pelaksanaan:', r.AktivitiTarikh);
-  fieldRow('Bilangan Pelajar:', r.AktivitiBilPelajar);
-  fieldRow('Objektif:', r.AktivitiObjektif, W - 2 * margin - 30);
-  fieldRow('Ringkasan:', r.AktivitiRingkasan, W - 2 * margin - 30);
+  fieldRow('Activity Name:', r.AktivitiNama);
+  fieldRow('Implementation Date:', r.AktivitiTarikh);
+  fieldRow('Number of Students:', r.AktivitiBilPelajar);
+  fieldRow('Objective:', r.AktivitiObjektif, W - 2 * margin - 30);
+  fieldRow('Summary:', r.AktivitiRingkasan, W - 2 * margin - 30);
   y += 2;
 
   // 5.0 Student Performance
@@ -2187,24 +2188,24 @@ function generateReportPDF(id) {
   }
 
   // 6.0 Ulasan
-  sectionTitle('6', 'Ulasan & Cadangan');
-  fieldRow('Ulasan:', r.Ulasan, W - 2 * margin - 30);
-  fieldRow('Cadangan:', r.Cadangan, W - 2 * margin - 30);
+  sectionTitle('6', 'Comments & Suggestions');
+  fieldRow('Comments:', r.Ulasan, W - 2 * margin - 30);
+  fieldRow('Suggestions:', r.Cadangan, W - 2 * margin - 30);
   y += 2;
 
   // 7.0 Lampiran (clickable links)
-  sectionTitle('7', 'Lampiran');
+  sectionTitle('7', 'Attachments');
   checkPageBreak(26);
   // --- Lampiran table ---
   const _lpX = margin, _lpW = W - 2 * margin;
   const _lpColX = [_lpX, _lpX + 16, _lpX + 118];
   doc.setFillColor(230, 241, 251); doc.rect(_lpX, y, _lpW, 7, 'F');
   doc.setFontSize(7.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(12, 68, 124);
-  ['Bil.', 'Dokumen Lampiran', 'Status'].forEach((h, i) => doc.text(h, _lpColX[i] + 2, y + 4.7));
+  ['No.', 'Attachment Document', 'Status'].forEach((h, i) => doc.text(h, _lpColX[i] + 2, y + 4.7));
   y += 7;
   const _lpRows = [
     ['7.1', 'Discussion Minutes', r.LampiranMinitURL],
-    ['7.2', 'Laporan Aktiviti / Program CQI', r.LampiranAktivitiURL]
+    ['7.2', 'CQI Activity / Programme Report', r.LampiranAktivitiURL]
   ];
   doc.setFont('helvetica', 'normal');
   _lpRows.forEach(row => {
@@ -2218,10 +2219,10 @@ function generateReportPDF(id) {
     doc.text(row[1], _lpColX[1] + 2, y + 5.3);
     if (row[2]) {
       doc.setTextColor(24, 95, 165);
-      doc.textWithLink('Lihat dokumen', _lpColX[2] + 2, y + 5.3, { url: row[2] });
+      doc.textWithLink('View document', _lpColX[2] + 2, y + 5.3, { url: row[2] });
     } else {
       doc.setTextColor(140, 140, 140);
-      doc.text('Tiada lampiran', _lpColX[2] + 2, y + 5.3);
+      doc.text('No attachment', _lpColX[2] + 2, y + 5.3);
     }
     y += rowH;
   });
@@ -2233,7 +2234,7 @@ function generateReportPDF(id) {
   doc.setFillColor(230, 241, 251);
   doc.rect(margin, y, W - 2 * margin, 7, 'F');
   doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor(12, 68, 124);
-  doc.text('PENGESAHAN', margin + 2, y + 5);
+  doc.text('CERTIFICATION', margin + 2, y + 5);
   doc.setTextColor(30, 30, 30);
   y += 12;
 
@@ -2254,14 +2255,14 @@ function generateReportPDF(id) {
   y += 25;
 
   doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
-  doc.text('Nama: ' + (r.SignedByPenyelaras || '___________________'), leftX, y);
-  doc.text('Nama: ' + (r.SignedByKetua || headOfCourse), rightX, y);
+  doc.text('Name: ' + (r.SignedByPenyelaras || '___________________'), leftX, y);
+  doc.text('Name: ' + (r.SignedByKetua || headOfCourse), rightX, y);
   y += 5;
-  doc.text('Tarikh: ' + (r.TarikhPenyelaras ? fmtDate(r.TarikhPenyelaras) : '________________'), leftX, y);
-  doc.text('Tarikh: ' + (r.TarikhKetua ? fmtDate(r.TarikhKetua) : '________________'), rightX, y);
+  doc.text('Date: ' + (r.TarikhPenyelaras ? fmtDate(r.TarikhPenyelaras) : '________________'), leftX, y);
+  doc.text('Date: ' + (r.TarikhKetua ? fmtDate(r.TarikhKetua) : '________________'), rightX, y);
   y += 5;
   if (r.KomenKetua) {
-    const komenLines = doc.splitTextToSize('Komen: ' + r.KomenKetua, colWidth);
+    const komenLines = doc.splitTextToSize('Comment: ' + r.KomenKetua, colWidth);
     doc.text(komenLines, rightX, y);
   }
 
