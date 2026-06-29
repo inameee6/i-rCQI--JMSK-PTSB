@@ -199,10 +199,10 @@ function showPage(id, silent) {
       <p class="text-muted">Lecturers can only access the Dashboard and PDF Archive.</p>`;
     return;
   }
+  else if (id === 'reports') main.innerHTML = renderReportsPage();
   else if (id === 'pdfarchive') main.innerHTML = renderFullPDFArchivePage();
   else if (id === 'perbandingan') main.innerHTML = renderComparisonPage();
   else if (id === 'laporan') main.innerHTML = renderLaporanPage();
-  else if (id === 'pdfarchive') main.innerHTML = renderPDFArchivePage();
   else if (id === 'kursus') main.innerHTML = renderKursusPage();
   else if (id === 'pensyarah') main.innerHTML = renderPensyarahPage();
   else if (id === 'pengguna') { main.innerHTML = renderPenggunaPage(); loadUsers().then(() => { if (currentPage === 'pengguna') main.innerHTML = renderPenggunaPage(); }); }
