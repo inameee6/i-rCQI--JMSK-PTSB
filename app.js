@@ -2194,18 +2194,39 @@ function generateReportPDF(id) {
 
   // 7.0 Lampiran (clickable links)
   sectionTitle('7', 'Lampiran');
-  checkPageBreak(14);
-  doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(24, 95, 165);
-  if (r.LampiranMinitURL) {
-    doc.textWithLink('📎 Discussion Minutes (klik untuk buka)', margin, y, { url: r.LampiranMinitURL });
-    y += 6;
-  } else { doc.setTextColor(120,120,120); doc.text('Discussion Minutes: tiada lampiran', margin, y); y += 6; doc.setTextColor(24,95,165); }
-  if (r.LampiranAktivitiURL) {
-    doc.textWithLink('📎 Laporan Aktiviti / Program CQI (klik untuk buka)', margin, y, { url: r.LampiranAktivitiURL });
-    y += 6;
-  } else { doc.setTextColor(120,120,120); doc.text('Laporan Aktiviti: tiada lampiran', margin, y); y += 6; }
-  doc.setTextColor(30, 30, 30);
-  y += 4;
+  checkPageBreak(26);
+  // --- Lampiran table ---
+  const _lpX = margin, _lpW = W - 2 * margin;
+  const _lpColX = [_lpX, _lpX + 16, _lpX + 118];
+  doc.setFillColor(230, 241, 251); doc.rect(_lpX, y, _lpW, 7, 'F');
+  doc.setFontSize(7.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(12, 68, 124);
+  ['Bil.', 'Dokumen Lampiran', 'Status'].forEach((h, i) => doc.text(h, _lpColX[i] + 2, y + 4.7));
+  y += 7;
+  const _lpRows = [
+    ['7.1', 'Discussion Minutes', r.LampiranMinitURL],
+    ['7.2', 'Laporan Aktiviti / Program CQI', r.LampiranAktivitiURL]
+  ];
+  doc.setFont('helvetica', 'normal');
+  _lpRows.forEach(row => {
+    const rowH = 8;
+    checkPageBreak(rowH);
+    doc.setDrawColor(210, 210, 210); doc.setLineWidth(0.2);
+    doc.rect(_lpX, y, _lpW, rowH);
+    _lpColX.slice(1).forEach(cx => doc.line(cx, y, cx, y + rowH));
+    doc.setFontSize(8); doc.setTextColor(30, 30, 30);
+    doc.text(row[0], _lpColX[0] + 2, y + 5.3);
+    doc.text(row[1], _lpColX[1] + 2, y + 5.3);
+    if (row[2]) {
+      doc.setTextColor(24, 95, 165);
+      doc.textWithLink('Lihat dokumen', _lpColX[2] + 2, y + 5.3, { url: row[2] });
+    } else {
+      doc.setTextColor(140, 140, 140);
+      doc.text('Tiada lampiran', _lpColX[2] + 2, y + 5.3);
+    }
+    y += rowH;
+  });
+  doc.setTextColor(30, 30, 30); doc.setFontSize(9);
+  y += 6;
 
   // Pengesahan / Signatures
   checkPageBreak(70);
