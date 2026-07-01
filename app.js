@@ -13,7 +13,6 @@ let laporanList = [];
 let usersList = [];
 let courseMasterList = [];
 let programKursusList = [];
-let pensyarahKelasList = [];
 let pensyarahList = [];
 let kelasList = [];
 let pdfLogList = [];
@@ -122,12 +121,11 @@ async function enterApp() {
 // ===== DATA LOADING =====
 async function loadAllData() {
   try {
-    const [reportsRes, laporanRes, courseRes, programRes, pkRes, pensyarahRes, kelasRes, pdfLogRes] = await Promise.all([
+    const [reportsRes, laporanRes, courseRes, programRes, pensyarahRes, kelasRes, pdfLogRes] = await Promise.all([
       apiGet('getCQIReports'),
       apiGet('getLaporan'),
       apiGet('getCourseMaster'),
       apiGet('getProgramKursus'),
-      apiGet('getPensyarahKelas'),
       apiGet('getPensyarah'),
       apiGet('getKelas'),
       apiGet('getPDFLog'),
@@ -136,7 +134,6 @@ async function loadAllData() {
     if (laporanRes.success) laporanList = laporanRes.data;
     if (courseRes.success) courseMasterList = courseRes.data;
     if (programRes.success) programKursusList = programRes.data;
-    if (pkRes.success) pensyarahKelasList = pkRes.data;
     if (pensyarahRes.success) pensyarahList = pensyarahRes.data;
     if (kelasRes.success) kelasList = kelasRes.data;
     if (pdfLogRes.success) pdfLogList = pdfLogRes.data;
