@@ -979,16 +979,26 @@ function openReportForm(id) {
 
         <div class="mt-2">
           <b class="text-sm">5.3 Course Learning Outcome (CLO)</b>
-          <div class="text-sm text-muted" style="font-size:11px;margin:2px 0 4px;">GA = Group Attainment &nbsp;•&nbsp; ≥50 = Student Achievement ≥50%. Isi kolum <b>Now</b> (sesi semasa); <b>Prev</b> auto-isi dari sesi lepas.</div>
-          <div class="repeat-header" style="grid-template-columns:52px 1.4fr 58px 58px 42px 58px 58px 42px;" id="clo-header-row"><span>CLO</span><span>Description</span><span>GA Now</span><span>GA Prev</span><span>GA Diff</span><span>≥50 Now</span><span>≥50 Prev</span><span>≥50 Diff</span></div>
+          <div class="text-sm text-muted" style="font-size:11px;margin:2px 0 4px;">Isi kolum <b>Now</b> (sesi semasa); <b>Prev</b> auto-isi dari sesi lepas.</div>
+          <div style="display:grid;grid-template-columns:52px 1.4fr 58px 58px 42px 58px 58px 42px;align-items:end;gap:2px;margin-top:6px;">
+            <span></span><span></span>
+            <span style="grid-column:span 3;text-align:center;font-weight:700;font-size:11px;color:var(--primary);border-bottom:2px solid #B5D4F4;padding-bottom:2px;">Group Attainment (%)</span>
+            <span style="grid-column:span 3;text-align:center;font-weight:700;font-size:11px;color:var(--primary);border-bottom:2px solid #B5D4F4;padding-bottom:2px;">Student Achievement ≥50% (%)</span>
+          </div>
+          <div class="repeat-header" style="grid-template-columns:52px 1.4fr 58px 58px 42px 58px 58px 42px;" id="clo-header-row"><span>CLO</span><span>Description</span><span>Now</span><span>Prev</span><span>Diff</span><span>Now</span><span>Prev</span><span>Diff</span></div>
           <div id="clo-rows"></div>
           <div class="text-sm text-muted mt-1" id="clo-empty-msg">Select course first to display CLO.</div>
         </div>
 
         <div class="mt-2">
           <b class="text-sm">5.4 Programme Learning Outcome (PLO)</b>
-          <div class="text-sm text-muted" style="font-size:11px;margin:2px 0 4px;">GA = Group Attainment &nbsp;•&nbsp; ≥50 = Student Achievement ≥50%. Isi kolum <b>Now</b> (sesi semasa); <b>Prev</b> auto-isi dari sesi lepas.</div>
-          <div class="repeat-header" style="grid-template-columns:52px 1.4fr 58px 58px 42px 58px 58px 42px;" id="plo-header-row"><span>PLO</span><span>Description</span><span>GA Now</span><span>GA Prev</span><span>GA Diff</span><span>≥50 Now</span><span>≥50 Prev</span><span>≥50 Diff</span></div>
+          <div class="text-sm text-muted" style="font-size:11px;margin:2px 0 4px;">Isi kolum <b>Now</b> (sesi semasa); <b>Prev</b> auto-isi dari sesi lepas.</div>
+          <div style="display:grid;grid-template-columns:52px 1.4fr 58px 58px 42px 58px 58px 42px;align-items:end;gap:2px;margin-top:6px;">
+            <span></span><span></span>
+            <span style="grid-column:span 3;text-align:center;font-weight:700;font-size:11px;color:var(--primary);border-bottom:2px solid #B5D4F4;padding-bottom:2px;">Group Attainment (%)</span>
+            <span style="grid-column:span 3;text-align:center;font-weight:700;font-size:11px;color:var(--primary);border-bottom:2px solid #B5D4F4;padding-bottom:2px;">Student Achievement ≥50% (%)</span>
+          </div>
+          <div class="repeat-header" style="grid-template-columns:52px 1.4fr 58px 58px 42px 58px 58px 42px;" id="plo-header-row"><span>PLO</span><span>Description</span><span>Now</span><span>Prev</span><span>Diff</span><span>Now</span><span>Prev</span><span>Diff</span></div>
           <div id="plo-rows"></div>
           <div class="text-sm text-muted mt-1" id="plo-empty-msg">Select Department, Programme &amp; course first to display PLO.</div>
         </div>
