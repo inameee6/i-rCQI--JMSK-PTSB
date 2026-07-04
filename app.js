@@ -662,7 +662,7 @@ function renderReportsPage() {
       <td>${esc(r.BilPelajar)}</td>
       <td>${statusBadge(r)}</td>
       <td>
-        <button class="btn btn-outline btn-sm" onclick="openReportDetail('${r.ID}')">View</button>
+        <button class="btn btn-outline btn-sm" onclick="openReportDetail('${r.ID}')">Verify</button>
         <button class="btn btn-outline btn-sm" onclick="openReportForm('${r.ID}')">Edit</button>
         <button class="btn btn-outline btn-sm" onclick="duplicateReport('${r.ID}')" title="Copy this report to new session">⧉ Copy</button>
         ${currentUser.Peranan === 'admin' ? `<button class="btn btn-red btn-sm" onclick="deleteReport('${r.ID}')">Delete</button>` : ''}
@@ -1037,6 +1037,21 @@ function openReportForm(id) {
         </div>
       </div>
 
+      <!-- COORDINATOR SIGNATURE (sign before saving to submit) -->
+      <div class="section-block">
+        <div class="card-title mb-0"><span class="card-num">✓</span>Coordinator Signature</div>
+        <div class="form-hint mt-1">Sign below to <b>submit</b> this report for Head of Course verification. If left blank, it is saved as a <b>Draft</b>.</div>
+        <div class="sig-wrap mt-2">
+          <canvas class="sig-canvas" id="sig-canvas-coord" width="460" height="140"></canvas>
+          <div class="sig-hint" id="sig-hint-coord">Sign here</div>
+        </div>
+        <div class="sig-actions mt-1" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+          <button class="btn btn-outline btn-sm" type="button" onclick="clearSigCanvas('coord')">Clear</button>
+          <label class="btn btn-outline btn-sm" style="cursor:pointer;margin:0;">📤 Upload signature<input type="file" accept="image/*" style="display:none;" onchange="uploadSigImage('coord', this)"></label>
+          <span class="text-muted" style="font-size:11px;">Draw or upload. Signed by: <b>${esc(currentUser.Nama)}</b></span>
+        </div>
+      </div>
+
       <div class="modal-footer">
         <button class="btn btn-outline" onclick="closeReportModal()">Cancel</button>
         <button class="btn btn-blue" id="btn-save-report" onclick="saveReportForm()">Save Report</button>
@@ -1061,6 +1076,10 @@ function openReportForm(id) {
     renderOutcomeRows('clo', safeParseArr(existing.CLOData));
     renderOutcomeRows('plo', safeParseArr(existing.PLOData));
   }
+
+  // Coordinator signature pad (sign to submit)
+  initSigCanvas('sig-canvas-coord');
+  if (existing?.SigPenyelarasData) loadSigOntoCanvas('sig-canvas-coord', existing.SigPenyelarasData);
 
   if (courseMasterList.length === 0) {
     document.getElementById('no-course-warning').style.display = 'block';
@@ -1646,6 +1665,17 @@ async function saveReportForm() {
       CreatedBy: currentUser.Nama,
     };
 
+    // Coordinator signature captured in the form → submit for Head verification.
+    // Editing never cancels signatures: if blank on edit, existing signature is preserved.
+    const coordSig = sigCanvasState['sig-canvas-coord'];
+    if (coordSig && coordSig.hasSig) {
+      const coordCanvas = document.getElementById('sig-canvas-coord');
+      payload.SigPenyelarasData = coordCanvas.toDataURL('image/png');
+      payload.SignedByPenyelaras = existing?.SignedByPenyelaras || currentUser.Nama;
+      payload.StatusPenyelaras = 'Disahkan';
+      payload.TarikhPenyelaras = existing?.TarikhPenyelaras || new Date().toISOString();
+    }
+
     const result = await apiPost('saveCQIReport', { data: payload });
     if (!result.success) { toast(result.message || 'Gagal menyimpan.', 'error'); return; }
 
@@ -1951,6 +1981,25 @@ function uploadSigImage(role, input) {
   reader.onerror = () => toast('Failed to read file.', 'error');
   reader.readAsDataURL(file);
   input.value = '';
+}
+
+// Lukis tandatangan sedia ada (data URL) ke atas kanvas (untuk mod edit)
+function loadSigOntoCanvas(canvasId, dataUrl) {
+  const canvas = document.getElementById(canvasId);
+  const state = sigCanvasState[canvasId];
+  if (!canvas || !state || !dataUrl) return;
+  const img = new Image();
+  img.onload = () => {
+    const cw = canvas.width, ch = canvas.height;
+    state.ctx.clearRect(0, 0, cw, ch);
+    const scale = Math.min(cw / img.width, ch / img.height);
+    const w = img.width * scale, h = img.height * scale;
+    state.ctx.drawImage(img, (cw - w) / 2, (ch - h) / 2, w, h);
+    state.hasSig = true;
+    const hint = document.getElementById('sig-hint-' + canvasId.replace('sig-canvas-', ''));
+    if (hint) hint.style.display = 'none';
+  };
+  img.src = dataUrl;
 }
 
 async function confirmSign(role, reportId) {
