@@ -1961,6 +1961,15 @@ async function confirmSign(role, reportId) {
   const sigData = canvas.toDataURL('image/png');
   const komen = role === 'ketua' ? (document.getElementById('komen-ketua')?.value || '') : '';
 
+  // Untuk langkah Head of Course, rekod nama Head yang ditetapkan (CourseMaster),
+  // bukan nama akaun yang log masuk (cth. admin yang mengisi bagi pihak).
+  let signerName = currentUser.Nama;
+  if (role === 'ketua') {
+    const rep = cqiReports.find(x => x.ID === reportId);
+    const course = courseMasterList.find(c => c.KodKursus === rep?.KodKursus);
+    signerName = course?.HeadOfCourse || currentUser.Nama;
+  }
+
   // Get manual date — fallback to current datetime if not set
   const dateInput = document.getElementById('tarikh-' + role);
   const manualDate = dateInput?.value
@@ -1970,7 +1979,7 @@ async function confirmSign(role, reportId) {
   try {
     const result = await apiPost('signReport', {
       id: reportId, role,
-      signerName: currentUser.Nama,
+      signerName,
       sigData, komen,
       manualDate
     });
