@@ -979,14 +979,16 @@ function openReportForm(id) {
 
         <div class="mt-2">
           <b class="text-sm">5.3 Course Learning Outcome (CLO)</b>
-          <div class="repeat-header" style="grid-template-columns:70px 2.5fr 80px 80px 70px;" id="clo-header-row"><span>CLO</span><span>Description</span><span>% Current</span><span>% Previous</span><span>% Diff</span></div>
+          <div class="text-sm text-muted" style="font-size:11px;margin:2px 0 4px;">GA = Group Attainment &nbsp;•&nbsp; ≥50 = Student Achievement ≥50%. Isi kolum <b>Now</b> (sesi semasa); <b>Prev</b> auto-isi dari sesi lepas.</div>
+          <div class="repeat-header" style="grid-template-columns:52px 1.4fr 58px 58px 42px 58px 58px 42px;" id="clo-header-row"><span>CLO</span><span>Description</span><span>GA Now</span><span>GA Prev</span><span>GA Diff</span><span>≥50 Now</span><span>≥50 Prev</span><span>≥50 Diff</span></div>
           <div id="clo-rows"></div>
           <div class="text-sm text-muted mt-1" id="clo-empty-msg">Select course first to display CLO.</div>
         </div>
 
         <div class="mt-2">
           <b class="text-sm">5.4 Programme Learning Outcome (PLO)</b>
-          <div class="repeat-header" style="grid-template-columns:70px 2.5fr 80px 80px 70px;" id="plo-header-row"><span>PLO</span><span>Description</span><span>% Current</span><span>% Previous</span><span>% Diff</span></div>
+          <div class="text-sm text-muted" style="font-size:11px;margin:2px 0 4px;">GA = Group Attainment &nbsp;•&nbsp; ≥50 = Student Achievement ≥50%. Isi kolum <b>Now</b> (sesi semasa); <b>Prev</b> auto-isi dari sesi lepas.</div>
+          <div class="repeat-header" style="grid-template-columns:52px 1.4fr 58px 58px 42px 58px 58px 42px;" id="plo-header-row"><span>PLO</span><span>Description</span><span>GA Now</span><span>GA Prev</span><span>GA Diff</span><span>≥50 Now</span><span>≥50 Prev</span><span>≥50 Diff</span></div>
           <div id="plo-rows"></div>
           <div class="text-sm text-muted mt-1" id="plo-empty-msg">Select Department, Programme &amp; course first to display PLO.</div>
         </div>
@@ -1145,11 +1147,11 @@ function onKursusChange() {
 
   const cloRows = clos.map(c => {
     const saved = savedClos.find(s => s.id === c.id);
-    return { id: c.id, desc: c.desc, pct: saved?.pct || '', pctLepas: saved?.pctLepas || '' };
+    return { id: c.id, desc: c.desc, pct: saved?.pct || '', pctLepas: saved?.pctLepas || '', pctGA: saved?.pctGA || '', pctGALepas: saved?.pctGALepas || '' };
   });
   const ploRows = plos.map(p => {
     const saved = savedPlos.find(s => s.id === p.id);
-    return { id: p.id, desc: p.desc, pct: saved?.pct || '', pctLepas: saved?.pctLepas || '' };
+    return { id: p.id, desc: p.desc, pct: saved?.pct || '', pctLepas: saved?.pctLepas || '', pctGA: saved?.pctGA || '', pctGALepas: saved?.pctGALepas || '' };
   });
 
   renderOutcomeRows('clo', cloRows);
@@ -1231,7 +1233,7 @@ function loadPreviousSessionData() {
     const id = row.querySelector('.oc-id')?.value;
     const prevClo = prevClos.find(c => c.id === id);
     const prevInput = row.querySelector('.oc-pct-lepas');
-    if (prevInput && prevClo) { prevInput.value = prevClo.pct || ''; updateOcDiff(row.querySelector('.oc-pct')); }
+    if (prevInput && prevClo) { prevInput.value = prevClo.pct || ''; const _ga = row.querySelector('.oc-ga-lepas'); if (_ga) _ga.value = prevClo.pctGA || ''; updateOcDiff(row.querySelector('.oc-pct')); }
   });
 
   // Update % Previous untuk PLO
@@ -1239,7 +1241,7 @@ function loadPreviousSessionData() {
     const id = row.querySelector('.oc-id')?.value;
     const prevPlo = prevPlos.find(p => p.id === id);
     const prevInput = row.querySelector('.oc-pct-lepas');
-    if (prevInput && prevPlo) { prevInput.value = prevPlo.pct || ''; updateOcDiff(row.querySelector('.oc-pct')); }
+    if (prevInput && prevPlo) { prevInput.value = prevPlo.pct || ''; const _ga = row.querySelector('.oc-ga-lepas'); if (_ga) _ga.value = prevPlo.pctGA || ''; updateOcDiff(row.querySelector('.oc-pct')); }
   });
 
   // Auto-isi baris gred Previous dari laporan sesi lepas
@@ -1403,10 +1405,13 @@ function renderOutcomeRows(kind, items) {
   items.forEach(d => {
     const row = document.createElement('div');
     row.className = 'repeat-row';
-    row.style.gridTemplateColumns = '70px 2.5fr 80px 80px 70px';
+    row.style.gridTemplateColumns = '52px 1.4fr 58px 58px 42px 58px 58px 42px';
     row.innerHTML = `
       <input type="text" class="oc-id" value="${esc(d.id)}" readonly style="background:#F1EFE8;font-size:12px;">
       <input type="text" class="oc-desc" value="${esc(d.desc)}" readonly style="background:#F1EFE8;font-size:12px;" title="${esc(d.desc)}">
+      <input type="number" class="oc-ga" value="${esc(d.pctGA || '')}" step="0.1" placeholder="%" oninput="updateOcDiff(this)" style="font-size:12px;">
+      <input type="number" class="oc-ga-lepas" value="${esc(d.pctGALepas || '')}" step="0.1" placeholder="%" oninput="updateOcDiff(this)" style="font-size:12px;">
+      <span class="oc-ga-diff text-sm" style="text-align:center;color:var(--text-muted);font-size:11px;">—</span>
       <input type="number" class="oc-pct" value="${esc(d.pct)}" step="0.1" placeholder="%" oninput="updateOcDiff(this)" style="font-size:12px;">
       <input type="number" class="oc-pct-lepas" value="${esc(d.pctLepas)}" step="0.1" placeholder="%" oninput="updateOcDiff(this)" style="font-size:12px;">
       <span class="oc-diff text-sm" style="text-align:center;color:var(--text-muted);font-size:11px;">—</span>`;
@@ -1485,12 +1490,17 @@ async function autoSaveKelas(input, kod) {
 
 function updateOcDiff(el) {
   const row = el.closest('.repeat-row');
-  const pct = parseFloat(row.querySelector('.oc-pct').value) || 0;
-  const pctLepas = parseFloat(row.querySelector('.oc-pct-lepas').value) || 0;
-  const diff = (pct - pctLepas).toFixed(1);
-  const diffEl = row.querySelector('.oc-diff');
-  diffEl.textContent = (diff > 0 ? '+' : '') + diff + '%';
-  diffEl.style.color = diff > 0 ? 'var(--success)' : diff < 0 ? 'var(--danger)' : 'var(--text-muted)';
+  const setDiff = (curSel, prevSel, diffSel) => {
+    const curEl = row.querySelector(curSel), prevEl = row.querySelector(prevSel), diffEl = row.querySelector(diffSel);
+    if (!diffEl) return;
+    const cur = parseFloat(curEl ? curEl.value : '') || 0;
+    const prev = parseFloat(prevEl ? prevEl.value : '') || 0;
+    const diff = (cur - prev).toFixed(1);
+    diffEl.textContent = (diff > 0 ? '+' : '') + diff + '%';
+    diffEl.style.color = diff > 0 ? 'var(--success)' : diff < 0 ? 'var(--danger)' : 'var(--text-muted)';
+  };
+  setDiff('.oc-ga', '.oc-ga-lepas', '.oc-ga-diff');
+  setDiff('.oc-pct', '.oc-pct-lepas', '.oc-diff');
 }
 
 
@@ -1530,6 +1540,8 @@ function collectOutcomeData(kind) {
     desc: row.querySelector('.oc-desc').value,
     pct: row.querySelector('.oc-pct').value,
     pctLepas: row.querySelector('.oc-pct-lepas').value,
+    pctGA: row.querySelector('.oc-ga') ? row.querySelector('.oc-ga').value : '',
+    pctGALepas: row.querySelector('.oc-ga-lepas') ? row.querySelector('.oc-ga-lepas').value : '',
   }));
 }
 
@@ -1969,6 +1981,42 @@ function generateReportPDF(id) {
     y += Math.max(7, lines.length * 5.2);
   }
 
+  // Sub-jadual outcome (dikongsi oleh 5.3.1/5.3.2/5.4.1/5.4.2)
+  function ocTable(subTitle, idLabel, items, curKey, prevKey) {
+    checkPageBreak(18);
+    doc.setFontSize(8.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 30, 30);
+    doc.text(subTitle, margin, y); y += 5;
+    doc.setFillColor(230, 241, 251); doc.rect(margin, y - 4, W - 2 * margin, 6, 'F');
+    doc.setFontSize(7); doc.setFont('helvetica', 'bold'); doc.setTextColor(12, 68, 124);
+    doc.text(idLabel, margin + 1, y);
+    doc.text('Description', margin + 18, y);
+    doc.text('% Current', margin + 118, y);
+    doc.text('% Previous', margin + 143, y);
+    doc.text('% Diff', margin + 168, y);
+    y += 6;
+    doc.setFont('helvetica', 'normal'); doc.setTextColor(30, 30, 30);
+    items.forEach((c, ci) => {
+      const descLines = doc.splitTextToSize(String(c.desc || ''), 95);
+      const rowH = Math.max(6, descLines.length * 5);
+      checkPageBreak(rowH + 2);
+      if (ci % 2 === 0) { doc.setFillColor(248, 249, 250); doc.rect(margin, y - 4, W - 2 * margin, rowH + 1, 'F'); }
+      doc.setTextColor(30, 30, 30);
+      doc.text(String(c.id || ''), margin + 1, y);
+      doc.text(descLines, margin + 18, y);
+      const cur = c[curKey], prev = c[prevKey];
+      const hasCur = cur !== '' && cur !== undefined && cur !== null;
+      const hasPrev = prev !== '' && prev !== undefined && prev !== null;
+      doc.text(hasCur ? String(cur) + '%' : '-', margin + 118, y);
+      doc.text(hasPrev ? String(prev) + '%' : '-', margin + 143, y);
+      const diff = ((parseFloat(cur) || 0) - (parseFloat(prev) || 0)).toFixed(1);
+      doc.setTextColor(diff > 0 ? 60 : diff < 0 ? 163 : 95, diff > 0 ? 109 : diff < 0 ? 45 : 94, diff > 0 ? 17 : diff < 0 ? 45 : 90);
+      doc.text((diff > 0 ? '+' : '') + diff + '%', margin + 168, y);
+      doc.setTextColor(30, 30, 30);
+      y += rowH + 1;
+    });
+    y += 4;
+  }
+
   // Header — Logo PTSB + tajuk rasmi
   const _logoW = 46, _logoH = _logoW / PTSB_LOGO_RATIO; // ≈ 17.7mm
   doc.addImage(PTSB_LOGO_BASE64, 'PNG', margin, 8, _logoW, _logoH);
@@ -2155,66 +2203,20 @@ function generateReportPDF(id) {
 
   const clos = safeParseArr(r.CLOData);
   if (clos.length) {
-    doc.setFontSize(9); doc.setFont('helvetica', 'bold');
-    checkPageBreak(12); doc.text('5.3 Course Learning Outcome (CLO)', margin, y); y += 5;
-    // Header
-    doc.setFillColor(230, 241, 251); doc.rect(margin, y - 4, W - 2 * margin, 6, 'F');
-    doc.setFontSize(7); doc.setFont('helvetica', 'bold');
-    doc.text('CLO', margin + 1, y);
-    doc.text('Description', margin + 18, y);
-    doc.text('% Current', margin + 118, y);
-    doc.text('% Previous', margin + 143, y);
-    doc.text('% Diff', margin + 168, y);
-    y += 6;
-    doc.setFont('helvetica', 'normal');
-    clos.forEach((c, ci) => {
-      const descLines = doc.splitTextToSize(String(c.desc || ''), 95);
-      const rowH = Math.max(6, descLines.length * 5);
-      checkPageBreak(rowH + 2);
-      if (ci % 2 === 0) { doc.setFillColor(248, 249, 250); doc.rect(margin, y - 4, W - 2 * margin, rowH + 1, 'F'); }
-      doc.text(String(c.id || ''), margin + 1, y);
-      doc.text(descLines, margin + 18, y);
-      doc.text(String(c.pct || '0') + '%', margin + 118, y);
-      doc.text(String(c.pctLepas || '—'), margin + 143, y);
-      const diff = ((parseFloat(c.pct) || 0) - (parseFloat(c.pctLepas) || 0)).toFixed(1);
-      doc.setTextColor(diff > 0 ? 60 : diff < 0 ? 163 : 95, diff > 0 ? 109 : diff < 0 ? 45 : 94, diff > 0 ? 17 : diff < 0 ? 45 : 90);
-      doc.text((diff > 0 ? '+' : '') + diff + '%', margin + 168, y);
-      doc.setTextColor(30, 30, 30);
-      y += rowH + 1;
-    });
-    y += 3;
+    checkPageBreak(14);
+    doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 30, 30);
+    doc.text('5.3 Course Learning Outcome (CLO)', margin, y); y += 6;
+    ocTable('5.3.1 Analysis of CLO Group Attainment (%)', 'CLO', clos, 'pctGA', 'pctGALepas');
+    ocTable('5.3.2 Analysis of CLO Student Achievement >= 50% (%)', 'CLO', clos, 'pct', 'pctLepas');
   }
 
   const plos = safeParseArr(r.PLOData);
   if (plos.length) {
-    doc.setFontSize(9); doc.setFont('helvetica', 'bold');
-    checkPageBreak(12); doc.text('5.4 Programme Learning Outcome (PLO)', margin, y); y += 5;
-    // Header
-    doc.setFillColor(230, 241, 251); doc.rect(margin, y - 4, W - 2 * margin, 6, 'F');
-    doc.setFontSize(7); doc.setFont('helvetica', 'bold');
-    doc.text('PLO', margin + 1, y);
-    doc.text('Description', margin + 18, y);
-    doc.text('% Current', margin + 118, y);
-    doc.text('% Previous', margin + 143, y);
-    doc.text('% Diff', margin + 168, y);
-    y += 6;
-    doc.setFont('helvetica', 'normal');
-    plos.forEach((p, pi) => {
-      const descLines = doc.splitTextToSize(String(p.desc || ''), 95);
-      const rowH = Math.max(6, descLines.length * 5);
-      checkPageBreak(rowH + 2);
-      if (pi % 2 === 0) { doc.setFillColor(248, 249, 250); doc.rect(margin, y - 4, W - 2 * margin, rowH + 1, 'F'); }
-      doc.text(String(p.id || ''), margin + 1, y);
-      doc.text(descLines, margin + 18, y);
-      doc.text(String(p.pct || '0') + '%', margin + 118, y);
-      doc.text(String(p.pctLepas || '—'), margin + 143, y);
-      const diff = ((parseFloat(p.pct) || 0) - (parseFloat(p.pctLepas) || 0)).toFixed(1);
-      doc.setTextColor(diff > 0 ? 60 : diff < 0 ? 163 : 95, diff > 0 ? 109 : diff < 0 ? 45 : 94, diff > 0 ? 17 : diff < 0 ? 45 : 90);
-      doc.text((diff > 0 ? '+' : '') + diff + '%', margin + 168, y);
-      doc.setTextColor(30, 30, 30);
-      y += rowH + 1;
-    });
-    y += 3;
+    checkPageBreak(14);
+    doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 30, 30);
+    doc.text('5.4 Programme Learning Outcome (PLO)', margin, y); y += 6;
+    ocTable('5.4.1 Analysis of PLO Group Attainment (%)', 'PLO', plos, 'pctGA', 'pctGALepas');
+    ocTable('5.4.2 Analysis of PLO Student Achievement >= 50% (%)', 'PLO', plos, 'pct', 'pctLepas');
   }
 
   // 6.0 Ulasan
