@@ -1781,7 +1781,11 @@ function openReportDetail(id) {
               <canvas class="sig-canvas" id="sig-canvas-penyelaras" width="460" height="140"></canvas>
               <div class="sig-hint" id="sig-hint-penyelaras">Sign here</div>
             </div>
-            <div class="sig-actions mt-1"><button class="btn btn-outline btn-sm" onclick="clearSigCanvas('penyelaras')">Clear</button></div>
+            <div class="sig-actions mt-1" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+              <button class="btn btn-outline btn-sm" type="button" onclick="clearSigCanvas('penyelaras')">Clear</button>
+              <label class="btn btn-outline btn-sm" style="cursor:pointer;margin:0;">📤 Upload signature<input type="file" accept="image/*" style="display:none;" onchange="uploadSigImage('penyelaras', this)"></label>
+              <span class="text-muted" style="font-size:11px;">Draw above, or upload a signature image.</span>
+            </div>
             <div class="form-group mt-1">
               <label>Date of Signature</label>
               <input type="date" id="tarikh-penyelaras" value="${new Date().toISOString().split('T')[0]}" style="max-width:200px;">
@@ -1808,7 +1812,11 @@ function openReportDetail(id) {
               <canvas class="sig-canvas" id="sig-canvas-ketua" width="460" height="140"></canvas>
               <div class="sig-hint" id="sig-hint-ketua">Sign here</div>
             </div>
-            <div class="sig-actions mt-1"><button class="btn btn-outline btn-sm" onclick="clearSigCanvas('ketua')">Clear</button></div>
+            <div class="sig-actions mt-1" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+              <button class="btn btn-outline btn-sm" type="button" onclick="clearSigCanvas('ketua')">Clear</button>
+              <label class="btn btn-outline btn-sm" style="cursor:pointer;margin:0;">📤 Upload signature<input type="file" accept="image/*" style="display:none;" onchange="uploadSigImage('ketua', this)"></label>
+              <span class="text-muted" style="font-size:11px;">Draw above, or upload a signature image.</span>
+            </div>
             <div class="form-group mt-1">
               <label>Date of Signature</label>
               <input type="date" id="tarikh-ketua" value="${new Date().toISOString().split('T')[0]}" style="max-width:200px;">
@@ -1910,6 +1918,39 @@ function clearSigCanvas(role) {
   state.hasSig = false;
   const hint = document.getElementById('sig-hint-' + role);
   if (hint) hint.style.display = 'block';
+}
+
+// Muat naik imej tandatangan → lukis ke kanvas (guna aliran simpan sedia ada)
+function uploadSigImage(role, input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) { toast('Please choose an image file (PNG/JPG).', 'error'); input.value = ''; return; }
+  if (file.size > 2 * 1024 * 1024) { toast('Image too large (max 2MB).', 'error'); input.value = ''; return; }
+  const canvasId = 'sig-canvas-' + role;
+  const canvas = document.getElementById(canvasId);
+  const state = sigCanvasState[canvasId];
+  if (!canvas || !state) { toast('Signature area not ready.', 'error'); input.value = ''; return; }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => {
+      const cw = canvas.width, ch = canvas.height;
+      state.ctx.clearRect(0, 0, cw, ch);
+      // Muat imej dalam kanvas, kekalkan nisbah, di tengah
+      const scale = Math.min(cw / img.width, ch / img.height);
+      const w = img.width * scale, h = img.height * scale;
+      state.ctx.drawImage(img, (cw - w) / 2, (ch - h) / 2, w, h);
+      state.hasSig = true;
+      const hint = document.getElementById('sig-hint-' + role);
+      if (hint) hint.style.display = 'none';
+      toast('Signature image loaded. Click "Sign" to submit.', 'success');
+    };
+    img.onerror = () => toast('Could not load that image.', 'error');
+    img.src = e.target.result;
+  };
+  reader.onerror = () => toast('Failed to read file.', 'error');
+  reader.readAsDataURL(file);
+  input.value = '';
 }
 
 async function confirmSign(role, reportId) {
