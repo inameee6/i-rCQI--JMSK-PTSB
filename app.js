@@ -2082,7 +2082,7 @@ function generateReportPDF(id) {
   doc.addImage(PTSB_LOGO_BASE64, 'PNG', margin, 8, _logoW, _logoH);
   doc.setTextColor(12, 68, 124);
   doc.setFontSize(13); doc.setFont('helvetica', 'bold');
-  doc.text('LAPORAN CONTINUOUS QUALITY', W - margin, 12, { align: 'right' });
+  doc.text('REPORT OF CONTINUOUS QUALITY', W - margin, 12, { align: 'right' });
   doc.text('IMPROVEMENT (CQI)', W - margin, 18, { align: 'right' });
   doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(90, 90, 90);
   doc.text('Session: ' + (r.Sesi || '—'), W - margin, 24, { align: 'right' });
@@ -2097,7 +2097,26 @@ function generateReportPDF(id) {
   fieldRow('Program:', r.Program);
   fieldRow('Code & Course Name:', r.KodKursus + ' — ' + r.NamaKursus);
   const lecturers = safeParseArr(r.Pensyarah);
-  fieldRow('Class & Lecturer:', lecturers.map(l => typeof l === 'object' ? `${l.kelas} — ${l.pensyarah}` : l).join('; ') || '—');
+  // Class & Lecturer — satu baris setiap kelas/pensyarah
+  {
+    const clList = lecturers.map(l => (typeof l === 'object' ? `${l.kelas} — ${l.pensyarah}` : String(l))).filter(x => x && x.trim() && x.trim() !== '—');
+    checkPageBreak(7);
+    doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(30, 30, 30);
+    doc.text('Class & Lecturer:', margin, y);
+    doc.setFont('helvetica', 'normal');
+    if (!clList.length) {
+      doc.text('—', margin + 55, y);
+      y += 7;
+    } else {
+      clList.forEach((item, i) => {
+        const wrapped = doc.splitTextToSize(item, W - 2 * margin - 55);
+        if (i > 0) checkPageBreak(wrapped.length * 5.2 + 1);
+        doc.text(wrapped, margin + 55, y);
+        y += wrapped.length * 5.2;
+      });
+      y += 1.5;
+    }
+  }
   fieldRow('Number of Students:', r.BilPelajar);
   y += 2;
 
@@ -2132,8 +2151,10 @@ function generateReportPDF(id) {
   const gradesPrev = safeParseObj(r.GredDataLepas);
   const gradeKeys = ['A+','A','A-','B+','B','B-','C+','C','C-','D+','D','E','E-','F'];
   const tableW = W - 2 * margin;
-  const labelW = 22;
-  const colW = (tableW - labelW) / gradeKeys.length;
+  const labelW = 20;
+  const totalColW = 18;                                   // lajur Total khusus (elak bertindih)
+  const colW = (tableW - labelW - totalColW) / gradeKeys.length;
+  const totalX = margin + labelW + colW * gradeKeys.length + 1;
 
   checkPageBreak(24);
   // Header row
@@ -2141,7 +2162,7 @@ function generateReportPDF(id) {
   doc.setFontSize(6.5); doc.setFont('helvetica', 'bold');
   doc.text('Session', margin + 1, y);
   gradeKeys.forEach((g, i) => doc.text(g, margin + labelW + i * colW + 1, y));
-  doc.text('Total', margin + tableW - 8, y);
+  doc.text('Total', totalX, y);
   y += 6;
 
   // Current session row
@@ -2152,7 +2173,7 @@ function generateReportPDF(id) {
   let totalCurr = 0;
   gradeKeys.forEach((g, i) => { const v = parseFloat(grades[g] || 0); totalCurr += v; doc.text(v > 0 ? v.toFixed(1) : '0', margin + labelW + i * colW + 1, y); });
   doc.setFont('helvetica', 'bold'); doc.setTextColor(24, 95, 165);
-  doc.text(totalCurr.toFixed(1) + '%', margin + tableW - 8, y);
+  doc.text(totalCurr.toFixed(1) + '%', totalX, y);
   doc.setTextColor(30, 30, 30); y += 6;
 
   // Previous session row
@@ -2163,7 +2184,7 @@ function generateReportPDF(id) {
   let totalPrev = 0;
   gradeKeys.forEach((g, i) => { const v = parseFloat(gradesPrev[g] || 0); totalPrev += v; doc.text(v > 0 ? v.toFixed(1) : '—', margin + labelW + i * colW + 1, y); });
   doc.setFont('helvetica', 'bold');
-  doc.text(totalPrev > 0 ? totalPrev.toFixed(1) + '%' : '—', margin + tableW - 8, y);
+  doc.text(totalPrev > 0 ? totalPrev.toFixed(1) + '%' : '—', totalX, y);
   doc.setTextColor(30, 30, 30); y += 10;
 
   // BAR CHART — 2 colours (Current vs Previous)
@@ -2204,13 +2225,13 @@ function generateReportPDF(id) {
     // Current bar (blue)
     if (currVal > 0) {
       const bH = (currVal / maxVal) * chartH;
-      doc.setFillColor(55, 138, 221);
+      doc.setFillColor(20, 66, 140);
       doc.rect(x + barGroupW * 0.05, chartY + chartH - bH, barW, bH, 'F');
     }
     // Previous bar (light blue)
     if (prevVal > 0) {
       const bH = (prevVal / maxVal) * chartH;
-      doc.setFillColor(181, 212, 244);
+      doc.setFillColor(240, 190, 20);
       doc.rect(x + barGroupW * 0.05 + barW + 1, chartY + chartH - bH, barW, bH, 'F');
     }
 
@@ -2221,9 +2242,9 @@ function generateReportPDF(id) {
 
   // Legend
   y = chartY + chartH + 8;
-  doc.setFillColor(55, 138, 221); doc.rect(margin + labelW, y, 8, 3, 'F');
+  doc.setFillColor(20, 66, 140); doc.rect(margin + labelW, y, 8, 3, 'F');
   doc.setFontSize(6.5); doc.text(r.Sesi || 'Current Session', margin + labelW + 10, y + 2.5);
-  doc.setFillColor(181, 212, 244); doc.rect(margin + labelW + 60, y, 8, 3, 'F');
+  doc.setFillColor(240, 190, 20); doc.rect(margin + labelW + 60, y, 8, 3, 'F');
   doc.text(r.SesiLepas || 'Previous Session', margin + labelW + 70, y + 2.5);
   y += 10;
 
