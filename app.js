@@ -26,10 +26,11 @@ function getVisibleReports() {
   if (!currentUser) return [];
   // Admin sees all
   if (currentUser.Peranan === 'admin') return cqiReports;
-  // Penyelaras and Ketua — only see assigned KodKursus
-  const assignedKod = currentUser.KodKursus;
-  if (!assignedKod) return cqiReports; // fallback: show all if not assigned
-  return cqiReports.filter(r => r.KodKursus === assignedKod);
+  // Coordinator & Head — only see their assigned course code(s)
+  const assigned = (currentUser.KodKursus || '').toString().trim();
+  if (!assigned) return cqiReports; // fallback: no restriction if unassigned
+  const codes = assigned.split(/[,;]/).map(x => x.trim()).filter(Boolean);
+  return cqiReports.filter(r => codes.includes((r.KodKursus || '').toString().trim()));
 }
 async function apiGet(action, params) {
   const qs = new URLSearchParams({ action, ...(params || {}) }).toString();
@@ -212,7 +213,7 @@ window.onload = () => { initAllSigCanvases(); };
    =================================================================== */
 
 function renderDashboard() {
-  const visibleReports = getVisibleReports();
+  const visibleReports = cqiReports; // Dashboard shows the overall picture (all courses)
 
   // Get unique filter options
   const allKursus = [...new Set(visibleReports.map(r => r.KodKursus).filter(Boolean))].sort();
@@ -2619,6 +2620,14 @@ function openUserForm() {
           <option value="admin">Administrator</option>
         </select>
       </div>
+      <div class="form-group">
+        <label>Assigned Course Code <span class="text-muted" style="font-weight:400;">(Coordinator / Head)</span></label>
+        <select id="u-kod">
+          <option value="">— All courses (no restriction) —</option>
+          ${[...new Set(courseMasterList.map(c => c.KodKursus))].filter(Boolean).sort().map(k => `<option value="${esc(k)}">${esc(k)}</option>`).join('')}
+        </select>
+        <div class="form-hint">Coordinator/Head will only see CQI Reports for this course. Leave blank for no restriction. (For multiple courses, set KodKursus in the Users sheet as comma-separated, e.g. DBS10042,DBM10163.)</div>
+      </div>
       <div class="modal-footer">
         <button class="btn btn-outline" onclick="closeDetailModal()">Cancel</button>
         <button class="btn btn-blue" id="btn-save-user" onclick="saveUserItem()">Add</button>
@@ -2635,7 +2644,7 @@ async function saveUserItem() {
   const btn = document.getElementById('btn-save-user');
   btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-dark"></span> Menyimpan...';
   try {
-    const result = await apiPost('addUser', { data: { IC: ic, Nama: nama, Peranan: document.getElementById('u-role').value } });
+    const result = await apiPost('addUser', { data: { IC: ic, Nama: nama, Peranan: document.getElementById('u-role').value, KodKursus: (document.getElementById('u-kod') ? document.getElementById('u-kod').value : '') } });
     if (result.success) {
       toast('Pengguna ditambah.', 'success');
       closeDetailModal();
