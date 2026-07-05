@@ -2578,7 +2578,11 @@ function renderPenggunaPage() {
       <td><span class="tag tag-gray">${esc(u.IC)}</span></td>
       <td>${esc(u.Nama)}</td>
       <td><span class="tag ${u.Peranan === 'admin' ? 'tag-red' : u.Peranan === 'ketua' ? 'tag-blue' : u.Peranan === 'lecturer' ? 'tag-gray' : 'tag-green'}">${roleLabel(u.Peranan)}</span></td>
-      <td><button class="btn btn-red btn-sm" onclick="deleteUserItem('${u.IC}')">Delete</button></td>
+      <td>${u.KodKursus ? esc(u.KodKursus) : '<span class="text-muted">—</span>'}</td>
+      <td>
+        <button class="btn btn-outline btn-sm" onclick="openUserForm('${esc(u.IC)}')">Edit</button>
+        <button class="btn btn-red btn-sm" onclick="deleteUserItem('${esc(u.IC)}')">Delete</button>
+      </td>
     </tr>`).join('');
 
   return `
@@ -2591,7 +2595,7 @@ function renderPenggunaPage() {
       ${usersList.length === 0 ? emptyState('👥', 'No users yet.') : `
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Staff No.</th><th>Name</th><th>Role</th><th>Action</th></tr></thead>
+          <thead><tr><th>Staff No.</th><th>Name</th><th>Role</th><th>Assigned Course</th><th>Action</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>`}
@@ -2603,56 +2607,67 @@ function roleLabel(role) {
   return labels[role] || role;
 }
 
-function openUserForm() {
+function openUserForm(editIC) {
+  const editing = editIC ? usersList.find(u => String(u.IC) === String(editIC)) : null;
+  const codeOptions = [...new Set(courseMasterList.map(c => c.KodKursus))].filter(Boolean).sort();
+  const selected = editing ? String(editing.KodKursus || '').split(/[,;]/).map(x => x.trim()).filter(Boolean) : [];
+  const allCodes = [...new Set([...codeOptions, ...selected])].sort();
   const root = document.getElementById('modal-root');
   root.innerHTML = `
   <div class="modal-bg open">
     <div class="modal modal-sm">
-      <div class="modal-title">👤 Add User</div>
-      <div class="form-group"><label>Staff ID</label><input id="u-ic" maxlength="20" placeholder="e.g.: STF12345" style="text-transform:uppercase;"></div>
-      <div class="form-group"><label>Full Name</label><input id="u-nama"></div>
+      <div class="modal-title">${editing ? '✏️ Edit User' : '👤 Add User'}</div>
+      <input type="hidden" id="u-edit" value="${editing ? esc(editing.IC) : ''}">
+      <div class="form-group"><label>Staff ID</label><input id="u-ic" maxlength="20" placeholder="e.g.: STF12345" style="text-transform:uppercase;" value="${editing ? esc(editing.IC) : ''}" ${editing ? 'readonly' : ''}></div>
+      <div class="form-group"><label>Full Name</label><input id="u-nama" value="${editing ? esc(editing.Nama) : ''}"></div>
       <div class="form-group">
         <label>Role</label>
         <select id="u-role">
-          <option value="lecturer">Lecturer (Dashboard &amp; PDF only)</option>
-          <option value="penyelaras">Course Coordinator</option>
-          <option value="ketua">Course Head</option>
-          <option value="admin">Administrator</option>
+          <option value="lecturer" ${editing && editing.Peranan === 'lecturer' ? 'selected' : ''}>Lecturer (Dashboard &amp; PDF only)</option>
+          <option value="penyelaras" ${editing && editing.Peranan === 'penyelaras' ? 'selected' : ''}>Course Coordinator</option>
+          <option value="ketua" ${editing && editing.Peranan === 'ketua' ? 'selected' : ''}>Course Head</option>
+          <option value="admin" ${editing && editing.Peranan === 'admin' ? 'selected' : ''}>Administrator</option>
         </select>
       </div>
       <div class="form-group">
-        <label>Assigned Course Code <span class="text-muted" style="font-weight:400;">(Coordinator / Head)</span></label>
-        <select id="u-kod">
-          <option value="">— All courses (no restriction) —</option>
-          ${[...new Set(courseMasterList.map(c => c.KodKursus))].filter(Boolean).sort().map(k => `<option value="${esc(k)}">${esc(k)}</option>`).join('')}
-        </select>
-        <div class="form-hint">Coordinator/Head will only see CQI Reports for this course. Leave blank for no restriction. (For multiple courses, set KodKursus in the Users sheet as comma-separated, e.g. DBS10042,DBM10163.)</div>
+        <label>Assigned Course Code(s) <span class="text-muted" style="font-weight:400;">(Coordinator / Head)</span></label>
+        <div id="u-kod-list" style="max-height:170px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px;">
+          ${allCodes.length ? allCodes.map(k => `<label style="display:flex;align-items:center;gap:8px;padding:3px 2px;cursor:pointer;font-weight:400;">
+            <input type="checkbox" class="u-kod-cb" value="${esc(k)}" ${selected.includes(k) ? 'checked' : ''}> ${esc(k)}
+          </label>`).join('') : '<div class="text-muted" style="font-size:12px;">No courses yet. Add them in Course Management first.</div>'}
+        </div>
+        <div class="form-hint">Tick one or more courses — the Coordinator/Head will only see CQI Reports for the ticked courses. Leave all unticked for no restriction (sees all).</div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-outline" onclick="closeDetailModal()">Cancel</button>
-        <button class="btn btn-blue" id="btn-save-user" onclick="saveUserItem()">Add</button>
+        <button class="btn btn-blue" id="btn-save-user" onclick="saveUserItem()">${editing ? 'Save' : 'Add'}</button>
       </div>
     </div>
   </div>`;
 }
 
 async function saveUserItem() {
+  const editIC = (document.getElementById('u-edit') ? document.getElementById('u-edit').value : '');
   const ic = document.getElementById('u-ic').value.trim().toUpperCase();
   const nama = document.getElementById('u-nama').value.trim();
   if (!ic) { toast('Please enter Staff ID.', 'error'); return; }
   if (!nama) { toast('Please enter full name.', 'error'); return; }
   const btn = document.getElementById('btn-save-user');
-  btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-dark"></span> Menyimpan...';
+  btn.disabled = true; btn.innerHTML = '<span class="spinner spinner-dark"></span> Saving...';
   try {
-    const result = await apiPost('addUser', { data: { IC: ic, Nama: nama, Peranan: document.getElementById('u-role').value, KodKursus: (document.getElementById('u-kod') ? document.getElementById('u-kod').value : '') } });
+    const kodBoxes = Array.from(document.querySelectorAll('.u-kod-cb:checked')).map(cb => cb.value);
+    const data = { IC: ic, Nama: nama, Peranan: document.getElementById('u-role').value, KodKursus: kodBoxes.join(',') };
+    const result = editIC
+      ? await apiPost('updateUser', { data })
+      : await apiPost('addUser', { data });
     if (result.success) {
-      toast('Pengguna ditambah.', 'success');
+      toast(editIC ? 'User updated.' : 'User added.', 'success');
       closeDetailModal();
       await loadUsers();
       showPage('pengguna');
     } else toast(result.message, 'error');
-  } catch (err) { toast('Ralat: ' + err.message, 'error'); }
-  finally { btn.disabled = false; btn.innerHTML = 'Add'; }
+  } catch (err) { toast('Error: ' + err.message, 'error'); }
+  finally { btn.disabled = false; btn.innerHTML = editIC ? 'Save' : 'Add'; }
 }
 
 async function deleteUserItem(ic) {
