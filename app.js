@@ -803,7 +803,7 @@ function openReportForm(id) {
   const root = document.getElementById('modal-root');
   root.innerHTML = `
   <div class="modal-bg open" id="modal-report">
-    <div class="modal">
+    <div class="modal" style="max-width:1080px;width:96vw;">
       <div class="modal-title">${existing ? '✏️ Edit' : '📝 Add'} CQI Report</div>
 
       <!-- 1.0 COURSE INFORMATION -->
@@ -924,7 +924,7 @@ function openReportForm(id) {
                 </tr>
               </thead>
               <tbody>
-                <tr style="background:#F0F7FF;">
+                <tr id="grade-row-inputs" style="background:#F0F7FF;">
                   <td style="font-weight:600;font-size:11px;color:var(--primary);padding:4px 6px;">Current</td>
                   ${['A+','A','A-','B+','B','B-','C+','C','C-','D+','D','E','E-','F'].map(g => {
                     const gd = safeParseObj(existing?.GredData);
