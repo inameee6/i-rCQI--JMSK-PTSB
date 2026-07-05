@@ -980,12 +980,12 @@ function openReportForm(id) {
         <div class="mt-2">
           <b class="text-sm">5.3 Course Learning Outcome (CLO)</b>
           <div class="text-sm text-muted" style="font-size:11px;margin:2px 0 4px;">Isi kolum <b>Now</b> (sesi semasa); <b>Prev</b> auto-isi dari sesi lepas.</div>
-          <div style="display:grid;grid-template-columns:52px 1.4fr 58px 58px 42px 58px 58px 42px;align-items:end;gap:2px;margin-top:6px;">
+          <div style="display:grid;grid-template-columns:46px 1fr 68px 68px 48px 68px 68px 48px;align-items:end;gap:2px;margin-top:6px;">
             <span></span><span></span>
             <span style="grid-column:span 3;text-align:center;font-weight:700;font-size:11px;color:var(--primary);border-bottom:2px solid #B5D4F4;padding-bottom:2px;">Group Attainment (%)</span>
             <span style="grid-column:span 3;text-align:center;font-weight:700;font-size:11px;color:var(--primary);border-bottom:2px solid #B5D4F4;padding-bottom:2px;">Student Achievement ≥50% (%)</span>
           </div>
-          <div class="repeat-header" style="grid-template-columns:52px 1.4fr 58px 58px 42px 58px 58px 42px;" id="clo-header-row"><span>CLO</span><span>Description</span><span>Now</span><span>Prev</span><span>Diff</span><span>Now</span><span>Prev</span><span>Diff</span></div>
+          <div class="repeat-header" style="grid-template-columns:46px 1fr 68px 68px 48px 68px 68px 48px;" id="clo-header-row"><span>CLO</span><span>Description</span><span>Now</span><span>Prev</span><span>Diff</span><span>Now</span><span>Prev</span><span>Diff</span></div>
           <div id="clo-rows"></div>
           <div class="text-sm text-muted mt-1" id="clo-empty-msg">Select course first to display CLO.</div>
         </div>
@@ -993,12 +993,12 @@ function openReportForm(id) {
         <div class="mt-2">
           <b class="text-sm">5.4 Programme Learning Outcome (PLO)</b>
           <div class="text-sm text-muted" style="font-size:11px;margin:2px 0 4px;">Isi kolum <b>Now</b> (sesi semasa); <b>Prev</b> auto-isi dari sesi lepas.</div>
-          <div style="display:grid;grid-template-columns:52px 1.4fr 58px 58px 42px 58px 58px 42px;align-items:end;gap:2px;margin-top:6px;">
+          <div style="display:grid;grid-template-columns:46px 1fr 68px 68px 48px 68px 68px 48px;align-items:end;gap:2px;margin-top:6px;">
             <span></span><span></span>
             <span style="grid-column:span 3;text-align:center;font-weight:700;font-size:11px;color:var(--primary);border-bottom:2px solid #B5D4F4;padding-bottom:2px;">Group Attainment (%)</span>
             <span style="grid-column:span 3;text-align:center;font-weight:700;font-size:11px;color:var(--primary);border-bottom:2px solid #B5D4F4;padding-bottom:2px;">Student Achievement ≥50% (%)</span>
           </div>
-          <div class="repeat-header" style="grid-template-columns:52px 1.4fr 58px 58px 42px 58px 58px 42px;" id="plo-header-row"><span>PLO</span><span>Description</span><span>Now</span><span>Prev</span><span>Diff</span><span>Now</span><span>Prev</span><span>Diff</span></div>
+          <div class="repeat-header" style="grid-template-columns:46px 1fr 68px 68px 48px 68px 68px 48px;" id="plo-header-row"><span>PLO</span><span>Description</span><span>Now</span><span>Prev</span><span>Diff</span><span>Now</span><span>Prev</span><span>Diff</span></div>
           <div id="plo-rows"></div>
           <div class="text-sm text-muted mt-1" id="plo-empty-msg">Select Department, Programme &amp; course first to display PLO.</div>
         </div>
@@ -1397,12 +1397,12 @@ function autoCalcQO() {
   const c2 = document.getElementById('qo2-calc');
 
   if (r1) {
-    r1.textContent = allZero ? '—' : (qo1Pass ? '✅ Ya' : '❌ Tidak');
+    r1.textContent = allZero ? '—' : (qo1Pass ? '✅ Yes' : '❌ No');
     r1.style.color = allZero ? 'var(--text-muted)' : (qo1Pass ? 'var(--success)' : 'var(--danger)');
     if (c1) c1.textContent = !allZero ? `Total D and above: ${sumQO1.toFixed(1)}% (Threshold: ≥${threshold1}%)` : '';
   }
   if (r2) {
-    r2.textContent = allZero ? '—' : (qo2Pass ? '✅ Ya' : '❌ Tidak');
+    r2.textContent = allZero ? '—' : (qo2Pass ? '✅ Yes' : '❌ No');
     r2.style.color = allZero ? 'var(--text-muted)' : (qo2Pass ? 'var(--success)' : 'var(--danger)');
     if (c2) c2.textContent = !allZero ? `Total B and above: ${sumQO2.toFixed(1)}% (Threshold: ≥${threshold2}%)` : '';
   }
@@ -1434,7 +1434,7 @@ function renderOutcomeRows(kind, items) {
   items.forEach(d => {
     const row = document.createElement('div');
     row.className = 'repeat-row';
-    row.style.gridTemplateColumns = '52px 1.4fr 58px 58px 42px 58px 58px 42px';
+    row.style.gridTemplateColumns = '46px 1fr 68px 68px 48px 68px 68px 48px';
     row.innerHTML = `
       <input type="text" class="oc-id" value="${esc(d.id)}" readonly style="background:#F1EFE8;font-size:12px;">
       <input type="text" class="oc-desc" value="${esc(d.desc)}" readonly style="background:#F1EFE8;font-size:12px;" title="${esc(d.desc)}">
