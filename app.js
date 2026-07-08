@@ -194,7 +194,7 @@ function showPage(id, silent) {
   currentPage = id;
   setActiveNav(id);
   const main = document.getElementById('main-content');
-  if (id === 'dashboard') main.innerHTML = renderDashboard();
+  if (id === 'dashboard') { main.innerHTML = renderDashboard(); setTimeout(renderDashCharts, 0); }
   // Lecturer — read only: dashboard and pdfarchive only
   if (currentUser.Peranan === 'lecturer' && !['dashboard', 'pdfarchive'].includes(id)) {
     main.innerHTML = `<div class="page-title">Access Restricted</div>
@@ -250,7 +250,7 @@ function renderDashboard() {
     <!-- FILTER BAR -->
     <div class="card" style="padding:1rem 1.5rem;">
       <b class="text-sm" style="display:block;margin-bottom:10px;">🔍 Filter &amp; Analyse</b>
-      <div class="form-grid3">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;">
         <div class="form-group mb-0">
           <label>Course Code</label>
           <select id="dash-filter-kursus" onchange="renderDashCharts()">
@@ -266,10 +266,17 @@ function renderDashboard() {
           </select>
         </div>
         <div class="form-group mb-0">
-          <label>Session</label>
-          <select id="dash-filter-sesi" onchange="renderDashCharts()">
-            <option value="">— All Sessions —</option>
-            ${allSesi.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('')}
+          <label>Session A</label>
+          <select id="dash-filter-sesiA" onchange="renderDashCharts()">
+            <option value="">— Select —</option>
+            ${allSesi.map((sv, i) => `<option value="${esc(sv)}" ${i === 0 ? 'selected' : ''}>${esc(sv)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group mb-0">
+          <label>Session B (compare)</label>
+          <select id="dash-filter-sesiB" onchange="renderDashCharts()">
+            <option value="">— None —</option>
+            ${allSesi.map((sv, i) => `<option value="${esc(sv)}" ${i === 1 ? 'selected' : ''}>${esc(sv)}</option>`).join('')}
           </select>
         </div>
       </div>
@@ -437,136 +444,115 @@ async function deletePDFLog(i) {
 function renderDashCharts() {
   const kod = document.getElementById('dash-filter-kursus')?.value || '';
   const program = document.getElementById('dash-filter-program')?.value || '';
-  const sesi = document.getElementById('dash-filter-sesi')?.value || '';
+  const sesiA = document.getElementById('dash-filter-sesiA')?.value || '';
+  const sesiB = document.getElementById('dash-filter-sesiB')?.value || '';
   const area = document.getElementById('dash-charts-area');
   if (!area) return;
 
-  let filtered = getVisibleReports().filter(r =>
-    (!kod || r.KodKursus === kod) &&
-    (!program || r.Program === program) &&
-    (!sesi || r.Sesi === sesi)
-  ).sort((a, b) => String(a.Sesi).localeCompare(String(b.Sesi)));
+  const base = getVisibleReports().filter(r =>
+    (!kod || r.KodKursus === kod) && (!program || r.Program === program));
 
-  if (!filtered.length) {
-    area.innerHTML = `<div class="card" style="text-align:center;padding:2rem;color:var(--text-muted);"><div style="font-size:36px;margin-bottom:8px;">🔍</div><div>No reports match the selected filters.</div></div>`;
+  if (!sesiA && !sesiB) {
+    area.innerHTML = `<div class="card" style="text-align:center;padding:2rem;color:var(--text-muted);"><div style="font-size:36px;margin-bottom:8px;">\u{1F4CA}</div><div>Select <b>Session A</b> (and optionally <b>Session B</b>) above to compare CLO/PLO achievement.</div></div>`;
     return;
   }
 
-  // Build CLO trend data (all CLOs across sessions)
-  const cloIds = [...new Set(filtered.flatMap(r => safeParseArr(r.CLOData).map(c => c.id)))];
-  const ploIds = [...new Set(filtered.flatMap(r => safeParseArr(r.PLOData).map(p => p.id)))];
-  const sessions = filtered.map(r => r.Sesi);
-  const colors = ['#185FA5','#3B6D11','#BA7517','#A32D2D','#5F5E5A','#378ADD','#6DB33F'];
-
-  // CLO chart
-  const cloLines = cloIds.map((id, i) => {
-    const points = filtered.map(r => {
-      const clo = safeParseArr(r.CLOData).find(c => c.id === id);
-      return parseFloat(clo?.pct) || 0;
+  const avgFor = (sesi, kind, id, field) => {
+    if (!sesi) return null;
+    const recs = base.filter(r => r.Sesi === sesi);
+    const vals = [];
+    recs.forEach(r => {
+      const arr = safeParseArr(kind === 'CLO' ? r.CLOData : r.PLOData);
+      const item = arr.find(x => x.id === id);
+      if (item && item[field] !== '' && item[field] !== undefined && item[field] !== null) vals.push(parseFloat(item[field]) || 0);
     });
-    return { id, points, color: colors[i % colors.length] };
-  });
+    if (!vals.length) return null;
+    return vals.reduce((a, b) => a + b, 0) / vals.length;
+  };
 
-  // PLO chart
-  const ploLines = ploIds.map((id, i) => {
-    const points = filtered.map(r => {
-      const plo = safeParseArr(r.PLOData).find(p => p.id === id);
-      return parseFloat(plo?.pct) || 0;
+  const idsFor = (kind) => {
+    const set = new Set();
+    base.filter(r => r.Sesi === sesiA || r.Sesi === sesiB).forEach(r => {
+      safeParseArr(kind === 'CLO' ? r.CLOData : r.PLOData).forEach(x => { if (x.id) set.add(x.id); });
     });
-    return { id, points, color: colors[i % colors.length] };
-  });
+    return [...set];
+  };
 
-  // Grade trend
-  const gradeKeys = ['A+','A','A-','B+','B','B-','C+','C','C-','D+','D','E','E-','F'];
-  const gradeColors = { 'A+':'#185FA5','A':'#378ADD','A-':'#6BAED6','B+':'#3B6D11','B':'#74C476','B-':'#A1D99B','C+':'#BA7517','C':'#FEC44F','C-':'#FEE391','D+':'#A32D2D','D':'#FB6A4A','E':'#FCBBA1','E-':'#FEE0D2','F':'#5F5E5A' };
+  const buildItems = (kind, field) => idsFor(kind).map(id => ({
+    id,
+    a: avgFor(sesiA, kind, id, field),
+    b: avgFor(sesiB, kind, id, field)
+  }));
 
-  const chartHTML = (title, lines, labels, threshold) => {
+  const cloItems = buildItems('CLO', 'pct');
+  const ploItems = buildItems('PLO', 'pct');
+
+  // ---- grouped bar chart ----
+  const barChart = (title, items, threshold) => {
     threshold = threshold || 50;
-    if (!labels.length) return '';
-    if (!lines.length) return `<div class="card" style="margin-bottom:1.25rem;"><div class="card-title">${title}</div><p class="text-sm text-muted">No data available. Please fill in % Current values in the CQI Report form.</p></div>`;
+    if (!items.length) return `<div class="card" style="margin-bottom:1.25rem;"><div class="card-title">${title}</div><p class="text-sm text-muted">No data for the selected sessions. Fill in % values in the CQI Report form.</p></div>`;
+    const twoSeries = !!sesiB;
+    const w = 700, h = 280, padL = 45, padB = 55, padT = 24, padR = 20;
+    const chartW = w - padL - padR, chartH = h - padB - padT;
+    const groupW = chartW / items.length;
+    const barW = twoSeries ? Math.min(groupW * 0.28, 34) : Math.min(groupW * 0.42, 46);
+    const colA = '#14468C', colB = '#F0BE14', colBelow = '#A32D2D';
 
-    const maxVal = 100;
-    const w = 700, h = 240, padL = 45, padB = 40, padT = 20, padR = 20;
-    const chartW = w - padL - padR;
-    const chartH = h - padB - padT;
-    const xStep = labels.length > 1 ? chartW / (labels.length - 1) : chartW / 2;
-
-    // Grid lines
-    const gridLines = [0, 25, 50, 75, 100].map(v => {
-      const y = padT + chartH - (v / maxVal) * chartH;
-      const isThreshold = v === threshold;
-      return `<line x1="${padL}" y1="${y}" x2="${w - padR}" y2="${y}"
-        stroke="${isThreshold ? '#A32D2D' : '#e0e0e0'}"
-        stroke-width="${isThreshold ? 1.5 : 1}"
-        stroke-dasharray="${isThreshold ? '6,3' : 'none'}"/>
-        <text x="${padL - 5}" y="${y + 4}" text-anchor="end" font-size="10"
-          fill="${isThreshold ? '#A32D2D' : '#999'}" font-weight="${isThreshold ? 'bold' : 'normal'}">${v}%</text>
-        ${isThreshold ? `<text x="${w - padR + 2}" y="${y + 4}" font-size="9" fill="#A32D2D">≥${threshold}%</text>` : ''}`;
+    const grid = [0, 25, 50, 75, 100].map(v => {
+      const y = padT + chartH - (v / 100) * chartH;
+      const th = v === threshold;
+      return `<line x1="${padL}" y1="${y}" x2="${w - padR}" y2="${y}" stroke="${th ? '#A32D2D' : '#e5e5e5'}" stroke-width="${th ? 1.5 : 1}" stroke-dasharray="${th ? '6,3' : 'none'}"/>
+        <text x="${padL - 5}" y="${y + 4}" text-anchor="end" font-size="10" fill="${th ? '#A32D2D' : '#999'}" font-weight="${th ? 'bold' : 'normal'}">${v}%</text>`;
     }).join('');
 
-    // X labels
-    const xLabels = labels.map((l, i) => {
-      const x = padL + i * xStep;
-      return `<text x="${x}" y="${h - 6}" text-anchor="middle" font-size="10" fill="#666">${esc(l)}</text>`;
+    const bars = items.map((it, i) => {
+      const gx = padL + i * groupW + groupW / 2;
+      const drawBar = (val, offset, baseColor) => {
+        if (val === null || val === undefined) return '';
+        const bh = (val / 100) * chartH;
+        const x = gx + offset - barW / 2;
+        const yTop = padT + chartH - bh;
+        const col = val < threshold ? colBelow : baseColor;
+        return `<rect x="${x}" y="${yTop}" width="${barW}" height="${bh}" fill="${col}" rx="2"><title>${esc(it.id)}: ${val.toFixed(1)}%</title></rect>
+          <text x="${x + barW / 2}" y="${yTop - 3}" text-anchor="middle" font-size="8.5" fill="${col}">${val.toFixed(0)}%</text>`;
+      };
+      const aOff = twoSeries ? -barW * 0.6 : 0;
+      const bOff = barW * 0.6;
+      return drawBar(it.a, aOff, colA) + (twoSeries ? drawBar(it.b, bOff, colB) : '') +
+        `<text x="${gx}" y="${h - padB + 14}" text-anchor="middle" font-size="9" fill="#555">${esc(it.id)}</text>`;
     }).join('');
 
-    // Lines & dots with color based on threshold
-    const linesSVG = lines.map(line => {
-      const pts = line.points.map((v, i) => `${padL + i * xStep},${padT + chartH - (v / maxVal) * chartH}`).join(' ');
-      const dots = line.points.map((v, i) => {
-        const cx = padL + i * xStep;
-        const cy = padT + chartH - (v / maxVal) * chartH;
-        const dotColor = v < threshold ? '#A32D2D' : line.color;
-        return `<circle cx="${cx}" cy="${cy}" r="5" fill="${dotColor}" stroke="white" stroke-width="1.5">
-          <title>${line.id}: ${v}% (${v >= threshold ? '✓ Achieved' : '✗ Below ' + threshold + '%'})</title>
-        </circle>
-        <text x="${cx}" y="${cy - 8}" text-anchor="middle" font-size="9" fill="${dotColor}">${v}%</text>`;
-      }).join('');
-      return `<polyline points="${pts}" fill="none" stroke="${line.color}" stroke-width="2" stroke-linejoin="round" opacity="0.8"/>
-              ${dots}`;
-    }).join('');
-
-    // Legend
-    const legend = lines.map(l => `
-      <span style="display:inline-flex;align-items:center;gap:4px;margin-right:12px;font-size:12px;">
-        <span style="width:16px;height:3px;background:${l.color};display:inline-block;border-radius:2px;"></span>${esc(l.id)}
-      </span>`).join('');
+    const legend = `
+      <span style="display:inline-flex;align-items:center;gap:5px;margin-right:14px;font-size:12px;"><span style="width:14px;height:10px;background:${colA};display:inline-block;border-radius:2px;"></span>Session A${sesiA ? ': ' + esc(sesiA) : ''}</span>
+      ${twoSeries ? `<span style="display:inline-flex;align-items:center;gap:5px;margin-right:14px;font-size:12px;"><span style="width:14px;height:10px;background:${colB};display:inline-block;border-radius:2px;"></span>Session B: ${esc(sesiB)}</span>` : ''}
+      <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;"><span style="width:14px;height:10px;background:${colBelow};display:inline-block;border-radius:2px;"></span>Below ${threshold}%</span>`;
 
     return `<div class="card" style="margin-bottom:1.25rem;">
       <div class="card-title">${title}</div>
-      <svg viewBox="0 0 ${w} ${h}" style="width:100%;max-height:240px;">
-        ${gridLines}${xLabels}${linesSVG}
-      </svg>
-      <div style="margin-top:8px;flex-wrap:wrap;display:flex;align-items:center;">
-        ${legend}
-        <span style="margin-left:auto;font-size:11px;color:#A32D2D;">— — Threshold ≥${threshold}%  🔴 = Below threshold</span>
-      </div>
+      <svg viewBox="0 0 ${w} ${h}" style="width:100%;max-height:300px;">${grid}${bars}</svg>
+      <div style="margin-top:8px;flex-wrap:wrap;display:flex;align-items:center;">${legend}</div>
     </div>`;
   };
 
-  // Build achievement indicator — list CLO/PLO that failed ≥50%
+  const comparedReports = base.filter(r => r.Sesi === sesiA || r.Sesi === sesiB);
   const failedItems = [];
-  filtered.forEach(r => {
-    safeParseArr(r.CLOData).forEach(c => {
-      if ((parseFloat(c.pct) || 0) < 50) failedItems.push({ type: 'CLO', id: c.id, desc: c.desc, pct: c.pct, sesi: r.Sesi, kod: r.KodKursus, prog: r.Program });
-    });
-    safeParseArr(r.PLOData).forEach(p => {
-      if ((parseFloat(p.pct) || 0) < 50) failedItems.push({ type: 'PLO', id: p.id, desc: p.desc, pct: p.pct, sesi: r.Sesi, kod: r.KodKursus, prog: r.Program });
-    });
+  comparedReports.forEach(r => {
+    safeParseArr(r.CLOData).forEach(c => { if ((parseFloat(c.pct) || 0) < 50) failedItems.push({ type: 'CLO', id: c.id, desc: c.desc, pct: c.pct, sesi: r.Sesi, kod: r.KodKursus, prog: r.Program }); });
+    safeParseArr(r.PLOData).forEach(p => { if ((parseFloat(p.pct) || 0) < 50) failedItems.push({ type: 'PLO', id: p.id, desc: p.desc, pct: p.pct, sesi: r.Sesi, kod: r.KodKursus, prog: r.Program }); });
   });
 
   const achievementCard = `
     <div class="card" style="margin-bottom:1.25rem;">
-      <div class="card-title">🎯 CLO/PLO Achievement Indicator (Threshold: ≥50%)</div>
+      <div class="card-title">\u{1F3AF} CLO/PLO Achievement Indicator (Threshold: \u2265 50%)</div>
       ${failedItems.length === 0
         ? `<div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--success-light);border-radius:8px;">
-            <span style="font-size:28px;">✅</span>
-            <div><b style="color:var(--success);">All CLO & PLO Achieved!</b><div class="text-sm text-muted">All outcomes meet the ≥50% threshold for the selected filters.</div></div>
+            <span style="font-size:28px;">\u2705</span>
+            <div><b style="color:var(--success);">All CLO & PLO Achieved!</b><div class="text-sm text-muted">All outcomes meet the \u226550% threshold for the selected sessions.</div></div>
           </div>`
         : `<div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--danger-light);border-radius:8px;margin-bottom:12px;">
-            <span style="font-size:28px;">⚠️</span>
+            <span style="font-size:28px;">\u26A0\uFE0F</span>
             <div><b style="color:var(--danger);">${failedItems.length} outcome(s) below 50% threshold</b>
-            <div class="text-sm text-muted">The following CLO/PLO did not achieve the minimum ≥50%:</div></div>
+            <div class="text-sm text-muted">The following CLO/PLO did not achieve the minimum \u226550%:</div></div>
           </div>
           <div class="table-wrap"><table style="font-size:13px;">
             <thead><tr><th>Type</th><th>ID</th><th>Description</th><th>%</th><th>Course</th><th>Programme</th><th>Session</th></tr></thead>
@@ -574,7 +560,7 @@ function renderDashCharts() {
               <tr>
                 <td><span class="tag ${f.type === 'CLO' ? 'tag-blue' : 'tag-amber'}">${f.type}</span></td>
                 <td><b>${esc(f.id)}</b></td>
-                <td style="max-width:200px;font-size:12px;">${esc(f.desc || '—')}</td>
+                <td style="max-width:200px;font-size:12px;">${esc(f.desc || '\u2014')}</td>
                 <td><b style="color:var(--danger);">${esc(f.pct)}%</b></td>
                 <td>${esc(f.kod)}</td>
                 <td>${esc(f.prog)}</td>
@@ -586,9 +572,9 @@ function renderDashCharts() {
 
   area.innerHTML =
     achievementCard +
-    chartHTML('📈 CLO Achievement Trend (%)', cloLines, sessions, 50) +
-    chartHTML('📈 PLO Achievement Trend (%)', ploLines, sessions, 50) +
-    (filtered.length > 0 ? renderGradeTable(filtered) : '');
+    barChart('\u{1F4CA} CLO Achievement Comparison (%)', cloItems, 50) +
+    barChart('\u{1F4CA} PLO Achievement Comparison (%)', ploItems, 50) +
+    (comparedReports.length ? renderGradeTable(comparedReports) : '');
 }
 
 function renderGradeTable(reports) {
