@@ -172,14 +172,37 @@ const NAV_ITEMS = [
   { id: 'pengguna', icon: '👥', label: 'Users', adminOnly: true },
 ];
 
+// Clean monochrome SVG icons (Feather-style) for a professional sidebar
+const NAV_ICONS = {
+  dashboard: '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
+  reports: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>',
+  pdfarchive: '<polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/>',
+  kursus: '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
+  pensyarah: '<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>',
+  pengguna: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'
+};
+
+const SIDEBAR_STYLE = `<style id="nav-pro-style">
+  #sidebar .nav-item{display:flex;align-items:center;gap:11px;padding:9px 14px;margin:2px 8px;border-radius:8px;font-size:14px;font-weight:500;color:#3f4a5a;cursor:pointer;position:relative;transition:background .15s,color .15s;}
+  #sidebar .nav-item:hover{background:#eef2f7;color:#17233a;}
+  #sidebar .nav-item.active{background:#e8f0fb;color:#185FA5;font-weight:600;}
+  #sidebar .nav-item.active::before{content:'';position:absolute;left:1px;top:7px;bottom:7px;width:3px;border-radius:3px;background:#185FA5;}
+  #sidebar .nav-icon{display:flex;align-items:center;justify-content:center;width:24px;height:24px;flex:0 0 24px;}
+  #sidebar .nav-icon svg{width:23px;height:23px;fill:none;stroke:#6b7688;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;transition:stroke .15s;}
+  #sidebar .nav-item:hover .nav-icon svg{stroke:#17233a;}
+  #sidebar .nav-item.active .nav-icon svg{stroke:#185FA5;}
+  #sidebar .nav-sep{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#9aa4b2;font-weight:600;padding:14px 16px 6px;}
+</style>`;
+
 function renderSidebar() {
   const sb = document.getElementById('sidebar');
-  sb.innerHTML = NAV_ITEMS.map(item => {
+  sb.innerHTML = SIDEBAR_STYLE + NAV_ITEMS.map(item => {
     if (item.sep) return `<div class="nav-sep">${item.sep}</div>`;
     if (item.adminOnly && currentUser.Peranan !== 'admin') return '';
     if (item.hideForLecturer && currentUser.Peranan === 'lecturer') return '';
+    const svg = NAV_ICONS[item.id] ? `<svg viewBox="0 0 24 24">${NAV_ICONS[item.id]}</svg>` : (item.icon || '');
     return `<div class="nav-item" data-page="${item.id}" onclick="showPage('${item.id}')">
-      <span class="nav-icon">${item.icon}</span> ${item.label}
+      <span class="nav-icon">${svg}</span> ${item.label}
     </div>`;
   }).join('');
 }
