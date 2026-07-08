@@ -147,6 +147,17 @@ async function loadAllData() {
   }
 }
 
+// Muat semula LAPORAN sahaja (1 panggilan, bukan 8) — untuk simpan/sign/padam yang lebih pantas
+async function reloadReports() {
+  try {
+    const r = await apiGet('getCQIReports');
+    if (r.success) {
+      cqiReports = r.data;
+      if (currentPage === 'reports' || currentPage === 'dashboard') refreshCurrentPage();
+    }
+  } catch (e) { /* senyap — data akan segar pada muat semula seterusnya */ }
+}
+
 async function loadUsers() {
   try {
     const res = await apiGet('getUsers');
@@ -1692,10 +1703,10 @@ async function saveReportForm() {
     const result = await apiPost('saveCQIReport', { data: payload });
     if (!result.success) { toast(result.message || 'Gagal menyimpan.', 'error'); return; }
 
-    toast('Laporan CQI berjaya disimpan.', 'success');
+    toast('CQI report saved.', 'success');
     closeReportModal();
-    await loadAllData();
-    showPage('reports');
+    showPage('reports');   // kembali ke senarai serta-merta
+    reloadReports();       // segarkan di latar belakang (1 panggilan)
   } catch (err) {
     toast('Ralat: ' + err.message, 'error');
   } finally {
@@ -1716,8 +1727,9 @@ async function deleteReport(id) {
         try { await apiPost('deletePDFLog', { namaFail: fileName, all: true }); } catch (e) {}
       }
       toast('Report and its archive PDFs deleted.', 'success');
-      await loadAllData();
+      cqiReports = cqiReports.filter(x => String(x.ID) !== String(id));
       showPage('reports');
+      reloadReports();
     } else toast(result.message, 'error');
   } catch (err) { toast('Error: ' + err.message, 'error'); }
 }
@@ -2047,7 +2059,7 @@ async function confirmSign(role, reportId) {
     });
     if (result.success) {
       toast('Signature saved successfully.', 'success');
-      await loadAllData();
+      await reloadReports();
       openReportDetail(reportId);
     } else {
       toast(result.message || 'Failed to save signature.', 'error');
@@ -2618,8 +2630,8 @@ function renderPenggunaPage() {
       <td><span class="tag ${u.Peranan === 'admin' ? 'tag-red' : u.Peranan === 'ketua' ? 'tag-blue' : u.Peranan === 'lecturer' ? 'tag-gray' : 'tag-green'}">${roleLabel(u.Peranan)}</span></td>
       <td>${u.KodKursus ? esc(u.KodKursus) : '<span class="text-muted">—</span>'}</td>
       <td>
-        <button class="btn btn-outline btn-sm" onclick="openUserForm('${esc(u.IC)}')">Edit</button>
-        <button class="btn btn-red btn-sm" onclick="deleteUserItem('${esc(u.IC)}')">Delete</button>
+        <button class="btn btn-outline btn-sm" onclick="openUserForm('${esc(u.IC)}', '${esc(u.Peranan)}')">Edit</button>
+        <button class="btn btn-red btn-sm" onclick="deleteUserItem('${esc(u.IC)}', '${esc(u.Peranan)}')">Delete</button>
       </td>
     </tr>`).join('');
 
@@ -2645,8 +2657,8 @@ function roleLabel(role) {
   return labels[role] || role;
 }
 
-function openUserForm(editIC) {
-  const editing = editIC ? usersList.find(u => String(u.IC) === String(editIC)) : null;
+function openUserForm(editIC, editPeranan) {
+  const editing = editIC ? usersList.find(u => String(u.IC) === String(editIC) && (editPeranan === undefined || String(u.Peranan) === String(editPeranan))) : null;
   const codeOptions = [...new Set(courseMasterList.map(c => c.KodKursus))].filter(Boolean).sort();
   const selected = editing ? String(editing.KodKursus || '').split(/[,;]/).map(x => x.trim()).filter(Boolean) : [];
   const allCodes = [...new Set([...codeOptions, ...selected])].sort();
@@ -2656,6 +2668,7 @@ function openUserForm(editIC) {
     <div class="modal modal-sm">
       <div class="modal-title">${editing ? '✏️ Edit User' : '👤 Add User'}</div>
       <input type="hidden" id="u-edit" value="${editing ? esc(editing.IC) : ''}">
+      <input type="hidden" id="u-edit-role" value="${editing ? esc(editing.Peranan) : ''}">
       <div class="form-group"><label>Staff ID</label><input id="u-ic" maxlength="20" placeholder="e.g.: STF12345" style="text-transform:uppercase;" value="${editing ? esc(editing.IC) : ''}" ${editing ? 'readonly' : ''}></div>
       <div class="form-group"><label>Full Name</label><input id="u-nama" value="${editing ? esc(editing.Nama) : ''}"></div>
       <div class="form-group">
@@ -2666,6 +2679,7 @@ function openUserForm(editIC) {
           <option value="ketua" ${editing && editing.Peranan === 'ketua' ? 'selected' : ''}>Course Head</option>
           <option value="admin" ${editing && editing.Peranan === 'admin' ? 'selected' : ''}>Administrator</option>
         </select>
+        ${!editing ? '<div class="form-hint">Tip: you can add the same Staff ID again with a different role (e.g. Coordinator + Admin). At login the user picks which role to use.</div>' : ''}
       </div>
       <div class="form-group">
         <label>Assigned Course Code(s) <span class="text-muted" style="font-weight:400;">(Coordinator / Head)</span></label>
@@ -2695,8 +2709,9 @@ async function saveUserItem() {
   try {
     const kodBoxes = Array.from(document.querySelectorAll('.u-kod-cb:checked')).map(cb => cb.value);
     const data = { IC: ic, Nama: nama, Peranan: document.getElementById('u-role').value, KodKursus: kodBoxes.join(',') };
+    const origPeranan = (document.getElementById('u-edit-role') ? document.getElementById('u-edit-role').value : '');
     const result = editIC
-      ? await apiPost('updateUser', { data })
+      ? await apiPost('updateUser', { data, origIC: editIC, origPeranan })
       : await apiPost('addUser', { data });
     if (result.success) {
       toast(editIC ? 'User updated.' : 'User added.', 'success');
@@ -2708,13 +2723,13 @@ async function saveUserItem() {
   finally { btn.disabled = false; btn.innerHTML = editIC ? 'Save' : 'Add'; }
 }
 
-async function deleteUserItem(ic) {
-  if (!confirm('Delete pengguna ini?')) return;
+async function deleteUserItem(ic, peranan) {
+  if (!confirm('Delete this user role?')) return;
   try {
-    const result = await apiPost('deleteUser', { ic });
-    if (result.success) { toast('Pengguna dipadam.', 'success'); await loadUsers(); showPage('pengguna'); }
+    const result = await apiPost('deleteUser', { ic, peranan });
+    if (result.success) { toast('User deleted.', 'success'); await loadUsers(); showPage('pengguna'); }
     else toast(result.message, 'error');
-  } catch (err) { toast('Ralat: ' + err.message, 'error'); }
+  } catch (err) { toast('Error: ' + err.message, 'error'); }
 }
 /* ===================================================================
    PENGURUSAN KURSUS (Admin) — CourseMaster (CLO) + ProgramKursus (PLO ikut program)
