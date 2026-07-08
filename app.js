@@ -18,6 +18,7 @@ let kelasList = [];
 let pdfLogList = [];
 let _shownPdfLogs = [];
 let jabatanList = [];
+let _acvTab = 'all';
 let currentPage = 'dashboard';
 let editingReportId = null;
 
@@ -655,6 +656,8 @@ function exportDashboardCSV() {
   toast('Dashboard summary exported.', 'success');
 }
 
+function setAcvTab(t) { _acvTab = t; renderDashCharts(); }
+
 function renderDashCharts() {
   const kod = document.getElementById('dash-filter-kursus')?.value || '';
   const program = document.getElementById('dash-filter-program')?.value || '';
@@ -706,7 +709,7 @@ function renderDashCharts() {
     threshold = threshold || 50;
     if (!items.length) return `<div class="card" style="margin-bottom:1.25rem;"><div class="card-title">${title}</div><p class="text-sm text-muted">No data for the selected sessions. Fill in % values in the CQI Report form.</p></div>`;
     const twoSeries = !!sesiB;
-    const w = 700, h = 280, padL = 45, padB = 55, padT = 24, padR = 20;
+    const w = 700, h = 300, padL = 48, padB = 64, padT = 34, padR = 20;
     const chartW = w - padL - padR, chartH = h - padB - padT;
     const groupW = chartW / items.length;
     const barW = twoSeries ? Math.min(groupW * 0.28, 34) : Math.min(groupW * 0.42, 46);
@@ -716,7 +719,7 @@ function renderDashCharts() {
       const y = padT + chartH - (v / 100) * chartH;
       const th = v === threshold;
       return `<line x1="${padL}" y1="${y}" x2="${w - padR}" y2="${y}" stroke="${th ? '#A32D2D' : '#e5e5e5'}" stroke-width="${th ? 1.5 : 1}" stroke-dasharray="${th ? '6,3' : 'none'}"/>
-        <text x="${padL - 5}" y="${y + 4}" text-anchor="end" font-size="10" fill="${th ? '#A32D2D' : '#999'}" font-weight="${th ? 'bold' : 'normal'}">${v}%</text>`;
+        <text x="${padL - 6}" y="${y + 4}" text-anchor="end" font-size="13" fill="${th ? '#A32D2D' : '#8a94a6'}" font-weight="${th ? 'bold' : '500'}">${v}%</text>`;
     }).join('');
 
     const bars = items.map((it, i) => {
@@ -728,22 +731,22 @@ function renderDashCharts() {
         const yTop = padT + chartH - bh;
         const col = val < threshold ? colBelow : baseColor;
         return `<rect x="${x}" y="${yTop}" width="${barW}" height="${bh}" fill="${col}" rx="2"><title>${esc(it.id)}: ${val.toFixed(1)}%</title></rect>
-          <text x="${x + barW / 2}" y="${yTop - 3}" text-anchor="middle" font-size="8.5" fill="${col}">${val.toFixed(0)}%</text>`;
+          <text x="${x + barW / 2}" y="${yTop - 6}" text-anchor="middle" font-size="14" font-weight="bold" fill="${col}">${val.toFixed(0)}%</text>`;
       };
       const aOff = twoSeries ? -barW * 0.6 : 0;
       const bOff = barW * 0.6;
       return drawBar(it.a, aOff, colA) + (twoSeries ? drawBar(it.b, bOff, colB) : '') +
-        `<text x="${gx}" y="${h - padB + 14}" text-anchor="middle" font-size="9" fill="#555">${esc(it.id)}</text>`;
+        `<text x="${gx}" y="${h - padB + 20}" text-anchor="middle" font-size="14" font-weight="600" fill="#333">${esc(it.id)}</text>`;
     }).join('');
 
     const legend = `
-      <span style="display:inline-flex;align-items:center;gap:5px;margin-right:14px;font-size:12px;"><span style="width:14px;height:10px;background:${colA};display:inline-block;border-radius:2px;"></span>Session A${sesiA ? ': ' + esc(sesiA) : ''}</span>
-      ${twoSeries ? `<span style="display:inline-flex;align-items:center;gap:5px;margin-right:14px;font-size:12px;"><span style="width:14px;height:10px;background:${colB};display:inline-block;border-radius:2px;"></span>Session B: ${esc(sesiB)}</span>` : ''}
-      <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;"><span style="width:14px;height:10px;background:${colBelow};display:inline-block;border-radius:2px;"></span>Below ${threshold}%</span>`;
+      <span style="display:inline-flex;align-items:center;gap:6px;margin-right:16px;font-size:13.5px;"><span style="width:16px;height:11px;background:${colA};display:inline-block;border-radius:2px;"></span>Session A${sesiA ? ': ' + esc(sesiA) : ''}</span>
+      ${twoSeries ? `<span style="display:inline-flex;align-items:center;gap:6px;margin-right:16px;font-size:13.5px;"><span style="width:16px;height:11px;background:${colB};display:inline-block;border-radius:2px;"></span>Session B: ${esc(sesiB)}</span>` : ''}
+      <span style="display:inline-flex;align-items:center;gap:6px;font-size:13.5px;"><span style="width:16px;height:11px;background:${colBelow};display:inline-block;border-radius:2px;"></span>Below ${threshold}%</span>`;
 
     return `<div class="card" style="margin-bottom:1.25rem;">
       <div class="card-title">${title}</div>
-      <svg viewBox="0 0 ${w} ${h}" style="width:100%;max-height:300px;">${grid}${bars}</svg>
+      <svg viewBox="0 0 ${w} ${h}" style="width:100%;max-height:360px;">${grid}${bars}</svg>
       <div style="margin-top:8px;flex-wrap:wrap;display:flex;align-items:center;">${legend}</div>
     </div>`;
   };
@@ -751,37 +754,68 @@ function renderDashCharts() {
   const comparedReports = base.filter(r => r.Sesi === sesiA || r.Sesi === sesiB);
   const failedItems = [];
   comparedReports.forEach(r => {
-    safeParseArr(r.CLOData).forEach(c => { if ((parseFloat(c.pct) || 0) < 50) failedItems.push({ type: 'CLO', id: c.id, desc: c.desc, pct: c.pct, sesi: r.Sesi, kod: r.KodKursus, prog: r.Program }); });
-    safeParseArr(r.PLOData).forEach(p => { if ((parseFloat(p.pct) || 0) < 50) failedItems.push({ type: 'PLO', id: p.id, desc: p.desc, pct: p.pct, sesi: r.Sesi, kod: r.KodKursus, prog: r.Program }); });
+    safeParseArr(r.CLOData).forEach(c => { const v = parseFloat(c.pct); if (!isNaN(v) && v < 50) failedItems.push({ type: 'CLO', id: c.id, desc: c.desc, pct: c.pct, sesi: r.Sesi, kod: r.KodKursus, prog: r.Program }); });
+    safeParseArr(r.PLOData).forEach(p => { const v = parseFloat(p.pct); if (!isNaN(v) && v < 50) failedItems.push({ type: 'PLO', id: p.id, desc: p.desc, pct: p.pct, sesi: r.Sesi, kod: r.KodKursus, prog: r.Program }); });
   });
 
+  // ---- CQI activity name per session ----
+  const activityFor = (sesi) => sesi ? [...new Set(base.filter(r => r.Sesi === sesi).map(r => r.AktivitiNama).filter(Boolean))] : [];
+  const actA = activityFor(sesiA), actB = activityFor(sesiB);
+  const activityCard = (actA.length || actB.length) ? `<div class="card" style="margin-bottom:1.25rem;">
+    <div class="card-title">📋 CQI Activity by Session</div>
+    <div style="display:flex;gap:20px;flex-wrap:wrap;">
+      ${sesiA ? `<div style="flex:1;min-width:220px;border-left:3px solid #14468C;padding-left:12px;"><div style="font-size:12px;color:#69748a;margin-bottom:3px;">Session A — ${esc(sesiA)}</div><div style="font-weight:600;color:#14468C;">${actA.length ? actA.map(esc).join('; ') : '—'}</div></div>` : ''}
+      ${sesiB ? `<div style="flex:1;min-width:220px;border-left:3px solid #c88a10;padding-left:12px;"><div style="font-size:12px;color:#69748a;margin-bottom:3px;">Session B — ${esc(sesiB)}</div><div style="font-weight:600;color:#c88a10;">${actB.length ? actB.map(esc).join('; ') : '—'}</div></div>` : ''}
+    </div>
+  </div>` : '';
+
+  // ---- interactive achievement indicator ----
+  const acvTab = _acvTab || 'all';
+  const cloFail = failedItems.filter(f => f.type === 'CLO').length;
+  const ploFail = failedItems.filter(f => f.type === 'PLO').length;
+  const shownFail = failedItems.filter(f => acvTab === 'all' || (acvTab === 'clo' && f.type === 'CLO') || (acvTab === 'plo' && f.type === 'PLO'));
   const achievementCard = `
     <div class="card" style="margin-bottom:1.25rem;">
-      <div class="card-title">\u{1F3AF} CLO/PLO Achievement Indicator (Threshold: \u2265 50%)</div>
+      <style>
+        .acv-tabs button{border:1px solid #d8dee7;background:#fff;color:#475569;font-size:12px;padding:5px 13px;border-radius:20px;cursor:pointer;margin-left:6px;transition:all .15s;}
+        .acv-tabs button:hover{border-color:#185FA5;}
+        .acv-tabs button.active{background:#185FA5;color:#fff;border-color:#185FA5;}
+        .acv-item{display:flex;align-items:center;gap:12px;padding:11px 4px;border-bottom:1px solid #f0f2f5;flex-wrap:wrap;}
+        .acv-item b{min-width:66px;font-size:13.5px;}
+        .acv-bar{position:relative;flex:1;min-width:150px;height:15px;background:#eef1f5;border-radius:8px;overflow:hidden;}
+        .acv-fill{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,#e05a5a,#c0392b);border-radius:8px;}
+        .acv-th{position:absolute;left:50%;top:-2px;bottom:-2px;width:2px;background:#334155;}
+        .acv-pct{font-weight:700;color:#c0392b;min-width:56px;text-align:right;font-size:14px;}
+        .acv-meta{font-size:11.5px;color:#8a94a6;min-width:190px;}
+      </style>
+      <div class="card-title">🎯 CLO/PLO Achievement Indicator (Threshold: ≥ 50%)</div>
       ${failedItems.length === 0
-        ? `<div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--success-light);border-radius:8px;">
-            <span style="font-size:28px;">\u2705</span>
-            <div><b style="color:var(--success);">All CLO & PLO Achieved!</b><div class="text-sm text-muted">All outcomes meet the \u226550% threshold for the selected sessions.</div></div>
+        ? `<div style="display:flex;align-items:center;gap:12px;padding:14px;background:var(--success-light);border-radius:8px;">
+            <span style="font-size:30px;">✅</span>
+            <div><b style="color:var(--success);font-size:15px;">All CLO & PLO Achieved!</b><div class="text-sm text-muted">All outcomes with recorded data meet the ≥50% threshold.</div></div>
           </div>`
-        : `<div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--danger-light);border-radius:8px;margin-bottom:12px;">
-            <span style="font-size:28px;">\u26A0\uFE0F</span>
-            <div><b style="color:var(--danger);">${failedItems.length} outcome(s) below 50% threshold</b>
-            <div class="text-sm text-muted">The following CLO/PLO did not achieve the minimum \u226550%:</div></div>
+        : `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px;">
+            <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--danger-light);border-radius:8px;flex:1;min-width:250px;">
+              <span style="font-size:26px;">⚠️</span>
+              <div><b style="color:var(--danger);font-size:15px;">${failedItems.length} outcome(s) below 50%</b>
+              <div class="text-sm text-muted">Only outcomes with recorded % are counted.</div></div>
+            </div>
+            <div class="acv-tabs">
+              <button class="${acvTab === 'all' ? 'active' : ''}" onclick="setAcvTab('all')">All ${failedItems.length}</button>
+              <button class="${acvTab === 'clo' ? 'active' : ''}" onclick="setAcvTab('clo')">CLO ${cloFail}</button>
+              <button class="${acvTab === 'plo' ? 'active' : ''}" onclick="setAcvTab('plo')">PLO ${ploFail}</button>
+            </div>
           </div>
-          <div class="table-wrap"><table style="font-size:13px;">
-            <thead><tr><th>Type</th><th>ID</th><th>Description</th><th>%</th><th>Course</th><th>Programme</th><th>Session</th></tr></thead>
-            <tbody>${failedItems.map(f => `
-              <tr>
-                <td><span class="tag ${f.type === 'CLO' ? 'tag-blue' : 'tag-amber'}">${f.type}</span></td>
-                <td><b>${esc(f.id)}</b></td>
-                <td style="max-width:200px;font-size:12px;">${esc(f.desc || '\u2014')}</td>
-                <td><b style="color:var(--danger);">${esc(f.pct)}%</b></td>
-                <td>${esc(f.kod)}</td>
-                <td>${esc(f.prog)}</td>
-                <td>${esc(f.sesi)}</td>
-              </tr>`).join('')}
-            </tbody>
-          </table></div>`}
+          <div>${shownFail.map(f => {
+            const v = parseFloat(f.pct) || 0;
+            return `<div class="acv-item">
+              <span class="tag ${f.type === 'CLO' ? 'tag-blue' : 'tag-amber'}">${f.type}</span>
+              <b title="${esc(f.desc || '')}">${esc(f.id)}</b>
+              <div class="acv-bar"><div class="acv-fill" style="width:${Math.max(3, Math.min(100, v))}%;"></div><div class="acv-th" title="Threshold 50%"></div></div>
+              <span class="acv-pct">${esc(f.pct)}%</span>
+              <span class="acv-meta">${esc(f.kod)} · ${esc(f.prog)} · ${esc(f.sesi)}</span>
+            </div>`;
+          }).join('')}</div>`}
     </div>`;
 
   // ---- auto insights ----
@@ -814,6 +848,7 @@ function renderDashCharts() {
 
   area.innerHTML =
     insightCard +
+    activityCard +
     achievementCard +
     barChart('\u{1F4CA} CLO Achievement Comparison (%)', cloItems, 50) +
     barChart('\u{1F4CA} PLO Achievement Comparison (%)', ploItems, 50) +
