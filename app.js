@@ -312,22 +312,67 @@ function renderDashboard() {
   const fullySigned = visibleReports.filter(r => r.StatusPenyelaras === 'Disahkan' && r.StatusKetua === 'Disahkan').length;
   const pendingSign = visibleReports.filter(r => r.StatusPenyelaras !== 'Disahkan').length;
   const pendingHead = visibleReports.filter(r => r.StatusPenyelaras === 'Disahkan' && r.StatusKetua !== 'Disahkan').length;
+  const kpiNav = currentUser.Peranan !== 'lecturer';
 
   return `
     <div class="page-title">Dashboard</div>
     <div class="page-sub">Welcome, ${esc(currentUser.Nama)}. Analytical overview of CQI Reports.</div>
 
-    <!-- STATS ROW -->
-    <div class="stats-grid">
-      <div class="stat-card"><div class="stat-label">Total Reports</div><div class="stat-value">${totalReports}</div></div>
-      <div class="stat-card"><div class="stat-label">✅ Fully Verified</div><div class="stat-value" style="color:var(--success);">${fullySigned}</div></div>
-      <div class="stat-card"><div class="stat-label">⏳ Pending Coordinator</div><div class="stat-value" style="color:var(--amber);">${pendingSign}</div></div>
-      <div class="stat-card"><div class="stat-label">⏳ Pending Head</div><div class="stat-value" style="color:var(--amber);">${pendingHead}</div></div>
+    <style id="dash-pro-style">
+      .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px;margin-bottom:1.5rem;}
+      .kpi-card{display:flex;align-items:center;gap:14px;background:#fff;border:1px solid #eceff3;border-radius:14px;padding:18px 20px;box-shadow:0 1px 3px rgba(16,24,40,.04);transition:transform .15s,box-shadow .15s;position:relative;overflow:hidden;}
+      .kpi-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(16,24,40,.10);}
+      .kpi-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;}
+      .kpi-blue::before{background:#185FA5;}.kpi-green::before{background:#1f9d57;}.kpi-amber::before{background:#e8a723;}.kpi-orange::before{background:#e0722f;}
+      .kpi-icon{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex:0 0 46px;}
+      .kpi-blue .kpi-icon{background:#e8f0fb;}.kpi-green .kpi-icon{background:#e6f6ec;}.kpi-amber .kpi-icon{background:#fdf4e0;}.kpi-orange .kpi-icon{background:#fdece1;}
+      .kpi-icon svg{width:24px;height:24px;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+      .kpi-blue .kpi-icon svg{stroke:#185FA5;}.kpi-green .kpi-icon svg{stroke:#1f9d57;}.kpi-amber .kpi-icon svg{stroke:#e8a723;}.kpi-orange .kpi-icon svg{stroke:#e0722f;}
+      .kpi-value{font-size:28px;font-weight:700;line-height:1;color:#1a2b45;}
+      .kpi-label{font-size:12.5px;color:#69748a;margin-top:5px;font-weight:500;}
+    </style>
+    <div class="kpi-grid">
+      <div class="kpi-card kpi-blue" ${kpiNav ? `onclick="showPage('reports')" style="cursor:pointer;"` : ''}>
+        <div class="kpi-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+        <div><div class="kpi-value">${totalReports}</div><div class="kpi-label">Total Reports</div></div>
+      </div>
+      <div class="kpi-card kpi-green" ${kpiNav ? `onclick="showPage('reports')" style="cursor:pointer;"` : ''}>
+        <div class="kpi-icon"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+        <div><div class="kpi-value" style="color:#1f9d57;">${fullySigned}</div><div class="kpi-label">Fully Verified</div></div>
+      </div>
+      <div class="kpi-card kpi-amber" ${kpiNav ? `onclick="showPage('reports')" style="cursor:pointer;"` : ''}>
+        <div class="kpi-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+        <div><div class="kpi-value" style="color:#c88a10;">${pendingSign}</div><div class="kpi-label">Pending Coordinator</div></div>
+      </div>
+      <div class="kpi-card kpi-orange" ${kpiNav ? `onclick="showPage('reports')" style="cursor:pointer;"` : ''}>
+        <div class="kpi-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+        <div><div class="kpi-value" style="color:#d06526;">${pendingHead}</div><div class="kpi-label">Pending Head</div></div>
+      </div>
     </div>
+
+    <!-- STATUS DISTRIBUTION -->
+    ${totalReports > 0 ? `<div class="card" style="margin-bottom:1.5rem;">
+      <div class="card-title">Report Status Distribution</div>
+      <div style="display:flex;align-items:center;gap:32px;flex-wrap:wrap;">
+        ${donutChartSVG([
+          { label: 'Fully Verified', value: fullySigned, color: '#1f9d57' },
+          { label: 'Pending Head', value: pendingHead, color: '#e0722f' },
+          { label: 'Draft / Pending Coordinator', value: pendingSign, color: '#e8a723' }
+        ], totalReports, 'Reports')}
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          ${statusLegendRow('#1f9d57', 'Fully Verified', fullySigned, totalReports)}
+          ${statusLegendRow('#e0722f', 'Pending Head', pendingHead, totalReports)}
+          ${statusLegendRow('#e8a723', 'Draft / Pending Coordinator', pendingSign, totalReports)}
+        </div>
+      </div>
+    </div>` : ''}
 
     <!-- FILTER BAR -->
     <div class="card" style="padding:1rem 1.5rem;">
-      <b class="text-sm" style="display:block;margin-bottom:10px;">🔍 Filter &amp; Analyse</b>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+        <b class="text-sm">🔍 Filter &amp; Analyse</b>
+        <button class="btn btn-outline btn-sm" onclick="exportDashboardCSV()">⬇ Export Summary (CSV)</button>
+      </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;">
         <div class="form-group mb-0">
           <label>Course Code</label>
@@ -519,6 +564,97 @@ async function deletePDFLog(i) {
   } catch (err) { toast('Error: ' + err.message, 'error'); }
 }
 
+function donutChartSVG(segments, centerTop, centerSub) {
+  const total = segments.reduce((a, x) => a + (x.value || 0), 0) || 1;
+  const r = 52, cx = 70, cy = 70, sw = 20, C = 2 * Math.PI * r;
+  let off = 0;
+  const rings = segments.map(seg => {
+    const len = (seg.value / total) * C;
+    const el = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${seg.color}" stroke-width="${sw}" stroke-dasharray="${len} ${C - len}" stroke-dashoffset="${-off}" transform="rotate(-90 ${cx} ${cy})"><title>${esc(seg.label)}: ${seg.value}</title></circle>`;
+    off += len;
+    return el;
+  }).join('');
+  return `<svg viewBox="0 0 140 140" width="140" height="140" style="flex:0 0 auto;">
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#eef1f5" stroke-width="${sw}"/>
+    ${rings}
+    <text x="${cx}" y="${cy - 1}" text-anchor="middle" font-size="24" font-weight="700" fill="#1a2b45">${centerTop}</text>
+    <text x="${cx}" y="${cy + 16}" text-anchor="middle" font-size="10" fill="#69748a">${centerSub}</text>
+  </svg>`;
+}
+
+function statusLegendRow(color, label, val, total) {
+  const pct = total ? Math.round(val / total * 100) : 0;
+  return `<div style="display:flex;align-items:center;gap:9px;font-size:13px;">
+    <span style="width:12px;height:12px;border-radius:3px;background:${color};display:inline-block;flex:0 0 auto;"></span>
+    <span style="color:#334155;min-width:190px;">${esc(label)}</span>
+    <b style="color:#1a2b45;">${val}</b><span style="color:#8a94a6;">(${pct}%)</span>
+  </div>`;
+}
+
+function csvCell(v) {
+  v = String(v == null ? '' : v);
+  return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+}
+
+function exportDashboardCSV() {
+  const kod = document.getElementById('dash-filter-kursus')?.value || '';
+  const program = document.getElementById('dash-filter-program')?.value || '';
+  const sesiA = document.getElementById('dash-filter-sesiA')?.value || '';
+  const sesiB = document.getElementById('dash-filter-sesiB')?.value || '';
+  const base = getVisibleReports().filter(r => (!kod || r.KodKursus === kod) && (!program || r.Program === program));
+  const compared = base.filter(r => r.Sesi === sesiA || r.Sesi === sesiB);
+  const total = base.length;
+  const verified = base.filter(r => r.StatusPenyelaras === 'Disahkan' && r.StatusKetua === 'Disahkan').length;
+  const pendCoord = base.filter(r => r.StatusPenyelaras !== 'Disahkan').length;
+  const pendHead = base.filter(r => r.StatusPenyelaras === 'Disahkan' && r.StatusKetua !== 'Disahkan').length;
+
+  const avgFor = (sesi, kind, id) => {
+    if (!sesi) return '';
+    const vals = [];
+    base.filter(r => r.Sesi === sesi).forEach(r => {
+      const it = safeParseArr(kind === 'CLO' ? r.CLOData : r.PLOData).find(x => x.id === id);
+      if (it && it.pct !== '' && it.pct != null) vals.push(parseFloat(it.pct) || 0);
+    });
+    return vals.length ? (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1) : '';
+  };
+  const idsFor = kind => {
+    const set = new Set();
+    compared.forEach(r => safeParseArr(kind === 'CLO' ? r.CLOData : r.PLOData).forEach(x => { if (x.id) set.add(x.id); }));
+    return [...set];
+  };
+
+  const rows = [];
+  rows.push(['i-rCQI Dashboard Summary']);
+  rows.push(['Generated', new Date().toLocaleString('en-MY')]);
+  rows.push(['Course', kod || 'All', 'Programme', program || 'All']);
+  rows.push(['Session A', sesiA || '-', 'Session B', sesiB || '-']);
+  rows.push([]);
+  rows.push(['Metric', 'Count']);
+  rows.push(['Total Reports', total]);
+  rows.push(['Fully Verified', verified]);
+  rows.push(['Pending Coordinator', pendCoord]);
+  rows.push(['Pending Head', pendHead]);
+  rows.push([]);
+  rows.push(['Type', 'ID', 'Session A (' + (sesiA || '-') + ') %', 'Session B (' + (sesiB || '-') + ') %', 'Difference']);
+  ['CLO', 'PLO'].forEach(kind => {
+    idsFor(kind).forEach(id => {
+      const a = avgFor(sesiA, kind, id), b = avgFor(sesiB, kind, id);
+      const diff = (a !== '' && b !== '') ? (parseFloat(a) - parseFloat(b)).toFixed(1) : '';
+      rows.push([kind, id, a, b, diff]);
+    });
+  });
+
+  const csv = rows.map(r => r.map(csvCell).join(',')).join('\r\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `CQI_Dashboard_Summary_${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  toast('Dashboard summary exported.', 'success');
+}
+
 function renderDashCharts() {
   const kod = document.getElementById('dash-filter-kursus')?.value || '';
   const program = document.getElementById('dash-filter-program')?.value || '';
@@ -648,7 +784,36 @@ function renderDashCharts() {
           </table></div>`}
     </div>`;
 
+  // ---- auto insights ----
+  const allOc = [...cloItems.map(x => ({ ...x, type: 'CLO' })), ...ploItems.map(x => ({ ...x, type: 'PLO' }))].filter(x => x.a !== null && x.a !== undefined);
+  const insights = [];
+  if (allOc.length) {
+    const lowest = allOc.reduce((m, x) => x.a < m.a ? x : m);
+    insights.push({ icon: '\u25BC', tone: lowest.a < 50 ? 'bad' : 'neutral', text: `Lowest: <b>${lowest.type} ${esc(lowest.id)}</b> at <b>${lowest.a.toFixed(1)}%</b>` });
+    const below = allOc.filter(x => x.a < 50).length;
+    insights.push(below ? { icon: '\u26A0', tone: 'bad', text: `<b>${below}</b> outcome(s) below 50%` } : { icon: '\u2713', tone: 'good', text: `All outcomes meet \u226550%` });
+    if (sesiB) {
+      const both = allOc.filter(x => x.b !== null && x.b !== undefined);
+      if (both.length) {
+        const drop = both.reduce((m, x) => (x.a - x.b) < (m.a - m.b) ? x : m);
+        const gain = both.reduce((m, x) => (x.a - x.b) > (m.a - m.b) ? x : m);
+        const dd = drop.a - drop.b, gg = gain.a - gain.b;
+        if (dd < 0) insights.push({ icon: '\u25BC', tone: 'bad', text: `Biggest drop: <b>${drop.type} ${esc(drop.id)}</b> ${dd.toFixed(1)}% vs Session B` });
+        if (gg > 0) insights.push({ icon: '\u25B2', tone: 'good', text: `Biggest gain: <b>${gain.type} ${esc(gain.id)}</b> +${gg.toFixed(1)}% vs Session B` });
+      }
+    }
+  }
+  const _tc = t => t === 'bad' ? '#c0392b' : t === 'good' ? '#1f9d57' : '#334155';
+  const _tb = t => t === 'bad' ? '#fdecea' : t === 'good' ? '#e9f7ef' : '#eef2f7';
+  const insightCard = insights.length ? `<div class="card" style="margin-bottom:1.25rem;">
+    <div class="card-title">\u{1F4A1} Insights${sesiA ? ' \u2014 ' + esc(sesiA) : ''}${sesiB ? ' vs ' + esc(sesiB) : ''}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;">
+      ${insights.map(i => `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:9px;background:${_tb(i.tone)};color:${_tc(i.tone)};font-size:13px;"><b style="font-size:14px;">${i.icon}</b><span>${i.text}</span></div>`).join('')}
+    </div>
+  </div>` : '';
+
   area.innerHTML =
+    insightCard +
     achievementCard +
     barChart('\u{1F4CA} CLO Achievement Comparison (%)', cloItems, 50) +
     barChart('\u{1F4CA} PLO Achievement Comparison (%)', ploItems, 50) +
