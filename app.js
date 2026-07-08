@@ -330,7 +330,7 @@ function renderDashboard() {
       .kpi-icon svg{width:24px;height:24px;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
       .kpi-blue .kpi-icon svg{stroke:#185FA5;}.kpi-green .kpi-icon svg{stroke:#1f9d57;}.kpi-amber .kpi-icon svg{stroke:#e8a723;}.kpi-orange .kpi-icon svg{stroke:#e0722f;}
       .kpi-value{font-size:28px;font-weight:700;line-height:1;color:#1a2b45;}
-      .kpi-label{font-size:12.5px;color:#69748a;margin-top:5px;font-weight:500;}
+      .kpi-label{font-size:13px;color:#69748a;margin-top:5px;font-weight:500;}
     </style>
     <div class="kpi-grid">
       <div class="kpi-card kpi-blue" ${kpiNav ? `onclick="showPage('reports')" style="cursor:pointer;"` : ''}>
@@ -740,9 +740,9 @@ function renderDashCharts() {
     }).join('');
 
     const legend = `
-      <span style="display:inline-flex;align-items:center;gap:6px;margin-right:16px;font-size:13.5px;"><span style="width:16px;height:11px;background:${colA};display:inline-block;border-radius:2px;"></span>Session A${sesiA ? ': ' + esc(sesiA) : ''}</span>
-      ${twoSeries ? `<span style="display:inline-flex;align-items:center;gap:6px;margin-right:16px;font-size:13.5px;"><span style="width:16px;height:11px;background:${colB};display:inline-block;border-radius:2px;"></span>Session B: ${esc(sesiB)}</span>` : ''}
-      <span style="display:inline-flex;align-items:center;gap:6px;font-size:13.5px;"><span style="width:16px;height:11px;background:${colBelow};display:inline-block;border-radius:2px;"></span>Below ${threshold}%</span>`;
+      <span style="display:inline-flex;align-items:center;gap:6px;margin-right:16px;font-size:13px;"><span style="width:16px;height:11px;background:${colA};display:inline-block;border-radius:2px;"></span>Session A${sesiA ? ': ' + esc(sesiA) : ''}</span>
+      ${twoSeries ? `<span style="display:inline-flex;align-items:center;gap:6px;margin-right:16px;font-size:13px;"><span style="width:16px;height:11px;background:${colB};display:inline-block;border-radius:2px;"></span>Session B: ${esc(sesiB)}</span>` : ''}
+      <span style="display:inline-flex;align-items:center;gap:6px;font-size:13px;"><span style="width:16px;height:11px;background:${colBelow};display:inline-block;border-radius:2px;"></span>Below ${threshold}%</span>`;
 
     return `<div class="card" style="margin-bottom:1.25rem;">
       <div class="card-title">${title}</div>
@@ -781,23 +781,23 @@ function renderDashCharts() {
         .acv-tabs button:hover{border-color:#185FA5;}
         .acv-tabs button.active{background:#185FA5;color:#fff;border-color:#185FA5;}
         .acv-item{display:flex;align-items:center;gap:12px;padding:11px 4px;border-bottom:1px solid #f0f2f5;flex-wrap:wrap;}
-        .acv-item b{min-width:66px;font-size:13.5px;}
+        .acv-item b{min-width:66px;font-size:13px;}
         .acv-bar{position:relative;flex:1;min-width:150px;height:15px;background:#eef1f5;border-radius:8px;overflow:hidden;}
         .acv-fill{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,#e05a5a,#c0392b);border-radius:8px;}
         .acv-th{position:absolute;left:50%;top:-2px;bottom:-2px;width:2px;background:#334155;}
         .acv-pct{font-weight:700;color:#c0392b;min-width:56px;text-align:right;font-size:14px;}
-        .acv-meta{font-size:11.5px;color:#8a94a6;min-width:190px;}
+        .acv-meta{font-size:12px;color:#8a94a6;min-width:190px;}
       </style>
       <div class="card-title">🎯 CLO/PLO Achievement Indicator (Threshold: ≥ 50%)</div>
       ${failedItems.length === 0
         ? `<div style="display:flex;align-items:center;gap:12px;padding:14px;background:var(--success-light);border-radius:8px;">
             <span style="font-size:30px;">✅</span>
-            <div><b style="color:var(--success);font-size:15px;">All CLO & PLO Achieved!</b><div class="text-sm text-muted">All outcomes with recorded data meet the ≥50% threshold.</div></div>
+            <div><b style="color:var(--success);font-size:14px;">All CLO & PLO Achieved!</b><div class="text-sm text-muted">All outcomes with recorded data meet the ≥50% threshold.</div></div>
           </div>`
         : `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px;">
             <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--danger-light);border-radius:8px;flex:1;min-width:250px;">
               <span style="font-size:26px;">⚠️</span>
-              <div><b style="color:var(--danger);font-size:15px;">${failedItems.length} outcome(s) below 50%</b>
+              <div><b style="color:var(--danger);font-size:14px;">${failedItems.length} outcome(s) below 50%</b>
               <div class="text-sm text-muted">Only outcomes with recorded % are counted.</div></div>
             </div>
             <div class="acv-tabs">
