@@ -17,6 +17,7 @@ let pensyarahList = [];
 let kelasList = [];
 let pdfLogList = [];
 let _shownPdfLogs = [];
+let jabatanList = [];
 let currentPage = 'dashboard';
 let editingReportId = null;
 
@@ -122,7 +123,7 @@ async function enterApp() {
 // ===== DATA LOADING =====
 async function loadAllData() {
   try {
-    const [reportsRes, laporanRes, courseRes, programRes, pensyarahRes, kelasRes, pdfLogRes] = await Promise.all([
+    const [reportsRes, laporanRes, courseRes, programRes, pensyarahRes, kelasRes, pdfLogRes, jabatanRes] = await Promise.all([
       apiGet('getCQIReports'),
       apiGet('getLaporan'),
       apiGet('getCourseMaster'),
@@ -130,6 +131,7 @@ async function loadAllData() {
       apiGet('getPensyarah'),
       apiGet('getKelas'),
       apiGet('getPDFLog'),
+      apiGet('getJabatan'),
     ]);
     if (reportsRes.success) cqiReports = reportsRes.data;
     if (laporanRes.success) laporanList = laporanRes.data;
@@ -138,6 +140,7 @@ async function loadAllData() {
     if (pensyarahRes.success) pensyarahList = pensyarahRes.data;
     if (kelasRes.success) kelasList = kelasRes.data;
     if (pdfLogRes.success) pdfLogList = pdfLogRes.data;
+    if (jabatanRes && jabatanRes.success) jabatanList = jabatanRes.data;
     refreshCurrentPage();
   } catch (err) {
     toast('Gagal memuatkan data: ' + err.message, 'error');
@@ -2682,7 +2685,67 @@ async function deleteUserItem(ic) {
    PENGURUSAN KURSUS (Admin) — CourseMaster (CLO) + ProgramKursus (PLO ikut program)
    =================================================================== */
 
-const JABATAN_LIST = ['JKM', 'JKE', 'JKA'];
+const DEFAULT_JABATAN = ['JKM', 'JKE', 'JKA', 'JP'];
+function getJabatanCodes() {
+  const codes = jabatanList.map(j => String(j.Kod || '').trim()).filter(Boolean);
+  return codes.length ? codes : DEFAULT_JABATAN;
+}
+
+function openJabatanManager() {
+  const root = document.getElementById('modal-root');
+  const sheetRows = jabatanList.filter(j => j.Kod);
+  const usingDefaults = sheetRows.length === 0;
+  const listHTML = usingDefaults
+    ? DEFAULT_JABATAN.map(k => `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);"><span class="tag tag-blue">${esc(k)}</span><span class="text-muted" style="font-size:11px;">default</span></div>`).join('')
+    : sheetRows.map(j => `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);"><span class="tag tag-blue">${esc(j.Kod)}</span><button class="btn btn-red btn-sm" onclick="deleteJabatanItem('${esc(j.ID)}')">Delete</button></div>`).join('');
+  root.innerHTML = `
+  <div class="modal-bg open">
+    <div class="modal modal-sm">
+      <div class="modal-title">🏛️ Manage Departments</div>
+      ${usingDefaults ? '<div class="alert alert-info" style="font-size:12px;">These are the built-in defaults. Click <b>Import defaults to edit</b> to make the list fully editable, or just add a new one below.</div>' : ''}
+      <div style="max-height:220px;overflow-y:auto;margin-bottom:10px;">${listHTML || '<div class="text-muted">No departments yet.</div>'}</div>
+      <div class="form-group">
+        <label>Add Department Code</label>
+        <div style="display:flex;gap:6px;">
+          <input id="jab-new" placeholder="e.g. JP" maxlength="12" style="text-transform:uppercase;">
+          <button class="btn btn-blue" onclick="addJabatan()">Add</button>
+        </div>
+      </div>
+      ${usingDefaults ? '<button class="btn btn-outline btn-sm" onclick="importDefaultJabatan()">Import defaults to edit</button>' : ''}
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeDetailModal()">Close</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function addJabatan() {
+  const kod = (document.getElementById('jab-new').value || '').trim().toUpperCase();
+  if (!kod) { toast('Enter a department code.', 'error'); return; }
+  try {
+    const result = await apiPost('saveJabatan', { data: { Kod: kod } });
+    if (result.success) { toast('Department added.', 'success'); await loadAllData(); openJabatanManager(); }
+    else toast(result.message, 'error');
+  } catch (err) { toast('Error: ' + err.message, 'error'); }
+}
+
+async function deleteJabatanItem(id) {
+  if (!confirm('Delete this department?')) return;
+  try {
+    const result = await apiPost('deleteJabatan', { id });
+    if (result.success) { toast('Department deleted.', 'success'); await loadAllData(); openJabatanManager(); }
+    else toast(result.message, 'error');
+  } catch (err) { toast('Error: ' + err.message, 'error'); }
+}
+
+async function importDefaultJabatan() {
+  try {
+    for (const k of DEFAULT_JABATAN) { await apiPost('saveJabatan', { data: { Kod: k } }); }
+    toast('Defaults imported.', 'success');
+    await loadAllData();
+    openJabatanManager();
+  } catch (err) { toast('Error: ' + err.message, 'error'); }
+}
 
 function renderKursusPage() {
   if (currentUser.Peranan !== 'admin') {
@@ -2712,6 +2775,7 @@ function renderKursusPage() {
     <div class="alert alert-info">💡 This setup only needs to be done <b>once</b> for each course. Course coordinators do not need to retype CLO/PLO — it will appear automatically when they select a course in the CQI Report form.</div>
     <div class="btn-row">
       <button class="btn btn-blue" onclick="openCourseMasterForm()">＋ Add Kursus Baharu</button>
+      <button class="btn btn-outline" onclick="openJabatanManager()">🏛️ Manage Departments</button>
     </div>
     <div class="card">
       ${courseMasterList.length === 0 ? emptyState('🎓', 'No courses set up yet. Klik "Add Kursus Baharu" untuk mula.') : `
@@ -2892,7 +2956,7 @@ function addProgramLinkRow(kodKursus) {
       <div class="modal-title">Kaitkan Program Baharu</div>
       <div class="form-group">
         <label>Department</label>
-        <select id="pl-jabatan">${JABATAN_LIST.map(j => `<option>${j}</option>`).join('')}</select>
+        <select id="pl-jabatan">${getJabatanCodes().map(j => `<option>${j}</option>`).join('')}</select>
       </div>
       <div class="form-group"><label>Nama Program (singkatan)</label><input id="pl-program" placeholder="cth: DEM, DGU"></div>
       <div class="form-group">
