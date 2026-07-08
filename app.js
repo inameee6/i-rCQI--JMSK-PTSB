@@ -2170,8 +2170,8 @@ function generateReportPDF(id) {
 
   // 3.0 Isu CLO & PLO
   sectionTitle('3', 'CLO & PLO Issues');
-  fieldRow('CLO Issues:', r.IsuCLO, W - 2 * margin - 30);
-  fieldRow('PLO Issues:', r.IsuPLO, W - 2 * margin - 30);
+  fieldRow('CLO Issues:', r.IsuCLO, W - 2 * margin - 55);
+  fieldRow('PLO Issues:', r.IsuPLO, W - 2 * margin - 55);
   y += 2;
 
   // 4.0 Aktiviti CQI
@@ -2179,8 +2179,8 @@ function generateReportPDF(id) {
   fieldRow('Activity Name:', r.AktivitiNama);
   fieldRow('Implementation Date:', r.AktivitiTarikh);
   fieldRow('Number of Students:', r.AktivitiBilPelajar);
-  fieldRow('Objective:', r.AktivitiObjektif, W - 2 * margin - 30);
-  fieldRow('Summary:', r.AktivitiRingkasan, W - 2 * margin - 30);
+  fieldRow('Objective:', r.AktivitiObjektif, W - 2 * margin - 55);
+  fieldRow('Summary:', r.AktivitiRingkasan, W - 2 * margin - 55);
   y += 2;
 
   // 5.0 Student Performance
@@ -2341,8 +2341,8 @@ function generateReportPDF(id) {
 
   // 6.0 Ulasan
   sectionTitle('6', 'Comments & Suggestions');
-  fieldRow('Comments:', r.Ulasan, W - 2 * margin - 30);
-  fieldRow('Suggestions:', r.Cadangan, W - 2 * margin - 30);
+  fieldRow('Comments:', r.Ulasan, W - 2 * margin - 55);
+  fieldRow('Suggestions:', r.Cadangan, W - 2 * margin - 55);
   y += 2;
 
   // 7.0 Lampiran (clickable links)
