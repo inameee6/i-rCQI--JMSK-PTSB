@@ -2070,12 +2070,38 @@ function generateReportPDF(id) {
     doc.setTextColor(30, 30, 30);
     y += 12;
   }
+  // Balut teks selamat: hormati ruang, tapi paksa-pecah token panjang tanpa ruang
+  function pdfWrap(text, maxWidth) {
+    text = String(text == null ? '' : text);
+    if (text === '') text = '—';
+    const out = [];
+    text.split('\n').forEach(para => {
+      const words = para.split(/\s+/).filter(w => w.length);
+      let line = '';
+      words.forEach(word => {
+        while (doc.getTextWidth(word) > maxWidth) {
+          let i = 1;
+          while (i <= word.length && doc.getTextWidth(word.slice(0, i)) <= maxWidth) i++;
+          const chunk = word.slice(0, Math.max(1, i - 1));
+          if (line) { out.push(line); line = ''; }
+          out.push(chunk);
+          word = word.slice(chunk.length);
+        }
+        const test = line ? line + ' ' + word : word;
+        if (doc.getTextWidth(test) > maxWidth && line) { out.push(line); line = word; }
+        else line = test;
+      });
+      if (line) out.push(line);
+      if (!words.length) out.push('');
+    });
+    return out.length ? out : [''];
+  }
   function fieldRow(label, value, width) {
     checkPageBreak(7);
     doc.setFontSize(9); doc.setFont('helvetica', 'bold');
     doc.text(label, margin, y);
     doc.setFont('helvetica', 'normal');
-    const lines = doc.splitTextToSize(String(value || '—'), (width || (W - 2 * margin - 55)));
+    const lines = pdfWrap(String(value || '—'), (width || (W - 2 * margin - 55)));
     doc.text(lines, margin + 55, y);
     y += Math.max(7, lines.length * 5.2);
   }
@@ -2148,7 +2174,7 @@ function generateReportPDF(id) {
       y += 7;
     } else {
       clList.forEach((item, i) => {
-        const wrapped = doc.splitTextToSize(item, W - 2 * margin - 55);
+        const wrapped = pdfWrap(item, W - 2 * margin - 55);
         if (i > 0) checkPageBreak(wrapped.length * 5.2 + 1);
         doc.text(wrapped, margin + 55, y);
         y += wrapped.length * 5.2;
