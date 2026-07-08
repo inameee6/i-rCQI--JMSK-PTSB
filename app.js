@@ -40,14 +40,58 @@ async function apiGet(action, params) {
   return res.json();
 }
 
+// ===== GLOBAL LOADING INDICATOR =====
+let _loadingCount = 0;
+function showLoading(msg) {
+  _loadingCount++;
+  let ov = document.getElementById('global-loading');
+  if (!ov) {
+    const style = document.createElement('style');
+    style.textContent = `
+      #global-loading{position:fixed;inset:0;background:rgba(15,23,42,.35);display:flex;align-items:center;justify-content:center;z-index:99999;}
+      #global-loading .gl-box{background:#fff;border-radius:12px;padding:20px 28px;display:flex;flex-direction:column;align-items:center;gap:12px;box-shadow:0 10px 40px rgba(0,0,0,.22);min-width:160px;}
+      #global-loading .gl-spinner{width:34px;height:34px;border:3px solid #e3e8ef;border-top-color:#185FA5;border-radius:50%;animation:glspin .7s linear infinite;}
+      #global-loading .gl-msg{font-size:13px;color:#334155;font-weight:600;text-align:center;}
+      @keyframes glspin{to{transform:rotate(360deg);}}`;
+    document.head.appendChild(style);
+    ov = document.createElement('div');
+    ov.id = 'global-loading';
+    ov.innerHTML = `<div class="gl-box"><div class="gl-spinner"></div><div class="gl-msg" id="gl-msg"></div></div>`;
+    document.body.appendChild(ov);
+  }
+  const m = document.getElementById('gl-msg');
+  if (m) m.textContent = msg || 'Please wait\u2026';
+  ov.style.display = 'flex';
+}
+function hideLoading() {
+  _loadingCount = Math.max(0, _loadingCount - 1);
+  if (_loadingCount === 0) {
+    const ov = document.getElementById('global-loading');
+    if (ov) ov.style.display = 'none';
+  }
+}
+function loadingMsgFor(action) {
+  const a = String(action || '').toLowerCase();
+  if (a.indexOf('delete') === 0) return 'Deleting\u2026';
+  if (a === 'savepdf') return 'Saving PDF to Google Drive\u2026';
+  if (a === 'signreport') return 'Saving signature\u2026';
+  if (a.indexOf('save') === 0 || a === 'adduser' || a === 'updateuser' || a === 'uploadfile' || a.indexOf('log') === 0) return 'Saving\u2026';
+  return 'Processing\u2026';
+}
+
 async function apiPost(action, payload) {
-  const res = await fetch(API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain' }, // text/plain elak CORS preflight
-    body: JSON.stringify({ action, ...payload }),
-  });
-  if (!res.ok) throw new Error('Ralat rangkaian: ' + res.status);
-  return res.json();
+  showLoading(loadingMsgFor(action));
+  try {
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' }, // text/plain elak CORS preflight
+      body: JSON.stringify({ action, ...payload }),
+    });
+    if (!res.ok) throw new Error('Ralat rangkaian: ' + res.status);
+    return await res.json();
+  } finally {
+    hideLoading();
+  }
 }
 
 // ===== TOAST NOTIFICATIONS =====
