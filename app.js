@@ -494,7 +494,7 @@ function renderFullPDFArchivePage() {
   const allKursus = [...new Set(logs.map(l => l.KodKursus).filter(Boolean))].sort();
   const allSesi = [...new Set(logs.map(l => l.Sesi).filter(Boolean))].sort().reverse();
   const allOleh = [...new Set(logs.map(l => l.JanaOleh).filter(Boolean))].sort();
-  const allJabatan = [...new Set(logs.flatMap(l => [...kodJabatanSet(l.KodKursus)]))].sort();
+  const allProgram = [...new Set(logs.map(l => programFromNamaFail(l.NamaFail, l.KodKursus)).filter(Boolean))].sort();
 
   return `
     <div class="page-title">🗂️ PDF Archive</div>
@@ -504,10 +504,10 @@ function renderFullPDFArchivePage() {
       <b class="text-sm" style="display:block;margin-bottom:10px;">🔍 Filter PDFs</b>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;">
         <div class="form-group mb-0">
-          <label>Department</label>
-          <select id="pdf-full-jabatan" onchange="filterFullPDFs()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:100%;">
-            <option value="">— All Departments —</option>
-            ${allJabatan.map(j => `<option value="${esc(j)}">${esc(j)}</option>`).join('')}
+          <label>Programme</label>
+          <select id="pdf-full-program" onchange="filterFullPDFs()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:100%;">
+            <option value="">— All Programmes —</option>
+            ${allProgram.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('')}
           </select>
         </div>
         <div class="form-group mb-0">
@@ -539,19 +539,25 @@ function renderFullPDFArchivePage() {
     </div>`;
 }
 
-function kodJabatanSet(kod) {
-  return new Set(programKursusList.filter(p => p.KodKursus === kod).map(p => p.Jabatan).filter(Boolean));
+function programFromNamaFail(nama, kod) {
+  if (!nama) return '';
+  let base = String(nama).replace(/\.pdf$/i, '');
+  const prefix = 'CQI_' + kod + '_';
+  if (base.indexOf(prefix) === 0) base = base.slice(prefix.length);
+  else { base = base.replace(/^CQI_/, ''); const u = base.indexOf('_'); if (u >= 0) base = base.slice(u + 1); }
+  const nu = base.indexOf('_');
+  return nu >= 0 ? base.slice(0, nu) : base;
 }
 
 function filterFullPDFs() {
   const kod = document.getElementById('pdf-full-kursus')?.value || '';
   const sesi = document.getElementById('pdf-full-sesi')?.value || '';
   const oleh = document.getElementById('pdf-full-oleh')?.value || '';
-  const jab = document.getElementById('pdf-full-jabatan')?.value || '';
+  const prog = document.getElementById('pdf-full-program')?.value || '';
   const assignedKod = currentUser.KodKursus;
   let logs = pdfLogList.slice().reverse();
   if (currentUser.Peranan !== 'admin' && assignedKod) logs = logs.filter(l => l.KodKursus === assignedKod);
-  if (jab) logs = logs.filter(l => kodJabatanSet(l.KodKursus).has(jab));
+  if (prog) logs = logs.filter(l => programFromNamaFail(l.NamaFail, l.KodKursus) === prog);
   if (kod) logs = logs.filter(l => l.KodKursus === kod);
   if (sesi) logs = logs.filter(l => l.Sesi === sesi);
   if (oleh) logs = logs.filter(l => l.JanaOleh === oleh);
@@ -924,13 +930,13 @@ function renderReportsPage() {
 
   // Get unique sessions for filter
   const sessions = [...new Set(visibleReports.map(r => r.Sesi).filter(Boolean))].sort().reverse();
-  const jabatans = [...new Set(visibleReports.map(r => r.Jabatan).filter(Boolean))].sort();
+  const programs = [...new Set(visibleReports.map(r => r.Program).filter(Boolean))].sort();
   const filterHTML = `
     <div class="flex items-center gap-8" style="margin-bottom:1rem;flex-wrap:wrap;">
-      <label class="text-sm" style="white-space:nowrap;font-weight:500;">Department:</label>
-      <select id="jabatan-filter-reports" onchange="filterReportsBySession()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;">
-        <option value="">— All Departments —</option>
-        ${jabatans.map(j => `<option value="${esc(j)}">${esc(j)}</option>`).join('')}
+      <label class="text-sm" style="white-space:nowrap;font-weight:500;">Programme:</label>
+      <select id="program-filter-reports" onchange="filterReportsBySession()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;">
+        <option value="">— All Programmes —</option>
+        ${programs.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('')}
       </select>
       <label class="text-sm" style="white-space:nowrap;font-weight:500;">Session:</label>
       <select id="session-filter-reports" onchange="filterReportsBySession()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;">
@@ -941,7 +947,7 @@ function renderReportsPage() {
     </div>`;
 
   const rows = visibleReports.map((r, i) => `
-    <tr class="report-row" data-sesi="${esc(r.Sesi)}" data-jabatan="${esc(r.Jabatan || '')}">
+    <tr class="report-row" data-sesi="${esc(r.Sesi)}" data-program="${esc(r.Program || '')}">
       <td style="color:var(--text-muted);font-size:12px;">${i + 1}</td>
       <td><span class="tag tag-blue">${esc(r.KodKursus)}</span></td>
       <td>${esc(r.NamaKursus)}</td>
@@ -3632,11 +3638,11 @@ function renderPDFArchivePage() {
 
 function filterReportsBySession() {
   const sesiVal = document.getElementById('session-filter-reports')?.value || '';
-  const jabVal = document.getElementById('jabatan-filter-reports')?.value || '';
+  const progVal = document.getElementById('program-filter-reports')?.value || '';
   document.querySelectorAll('#reports-tbody .report-row').forEach(row => {
     const sesi = row.getAttribute('data-sesi') || '';
-    const jab = row.getAttribute('data-jabatan') || '';
-    row.style.display = ((!sesiVal || sesi === sesiVal) && (!jabVal || jab === jabVal)) ? '' : 'none';
+    const prog = row.getAttribute('data-program') || '';
+    row.style.display = ((!sesiVal || sesi === sesiVal) && (!progVal || prog === progVal)) ? '' : 'none';
   });
 }
 
