@@ -393,14 +393,14 @@ function renderDashboard() {
           <label>Session A</label>
           <select id="dash-filter-sesiA" onchange="renderDashCharts()">
             <option value="">— Select —</option>
-            ${allSesi.map((sv, i) => `<option value="${esc(sv)}" ${i === 0 ? 'selected' : ''}>${esc(sv)}</option>`).join('')}
+            ${allSesi.map(sv => `<option value="${esc(sv)}">${esc(sv)}</option>`).join('')}
           </select>
         </div>
         <div class="form-group mb-0">
           <label>Session B (compare)</label>
           <select id="dash-filter-sesiB" onchange="renderDashCharts()">
             <option value="">— None —</option>
-            ${allSesi.map((sv, i) => `<option value="${esc(sv)}" ${i === 1 ? 'selected' : ''}>${esc(sv)}</option>`).join('')}
+            ${allSesi.map(sv => `<option value="${esc(sv)}">${esc(sv)}</option>`).join('')}
           </select>
         </div>
       </div>
@@ -670,7 +670,7 @@ function renderDashCharts() {
     (!kod || r.KodKursus === kod) && (!program || r.Program === program));
 
   if (!sesiA && !sesiB) {
-    area.innerHTML = `<div class="card" style="text-align:center;padding:2rem;color:var(--text-muted);"><div style="font-size:36px;margin-bottom:8px;">\u{1F4CA}</div><div>Select <b>Session A</b> (and optionally <b>Session B</b>) above to compare CLO/PLO achievement.</div></div>`;
+    area.innerHTML = `<div class="card" style="text-align:center;padding:2rem;color:var(--text-muted);"><div style="font-size:36px;margin-bottom:8px;">\u{1F4CA}</div><div>Use <b>Filter &amp; Analyse</b> above — select <b>Session A</b> (and optionally <b>Session B</b>) to view the CQI activity, achievement indicator, CLO/PLO comparison and grade distribution.</div></div>`;
     return;
   }
 
@@ -719,7 +719,7 @@ function renderDashCharts() {
       const y = padT + chartH - (v / 100) * chartH;
       const th = v === threshold;
       return `<line x1="${padL}" y1="${y}" x2="${w - padR}" y2="${y}" stroke="${th ? '#A32D2D' : '#e5e5e5'}" stroke-width="${th ? 1.5 : 1}" stroke-dasharray="${th ? '6,3' : 'none'}"/>
-        <text x="${padL - 6}" y="${y + 4}" text-anchor="end" font-size="13" fill="${th ? '#A32D2D' : '#8a94a6'}" font-weight="${th ? 'bold' : '500'}">${v}%</text>`;
+        <text x="${padL - 6}" y="${y + 4}" text-anchor="end" font-size="14" fill="${th ? '#A32D2D' : '#8a94a6'}" font-weight="${th ? 'bold' : '500'}">${v}%</text>`;
     }).join('');
 
     const bars = items.map((it, i) => {
