@@ -494,6 +494,7 @@ function renderFullPDFArchivePage() {
   const allKursus = [...new Set(logs.map(l => l.KodKursus).filter(Boolean))].sort();
   const allSesi = [...new Set(logs.map(l => l.Sesi).filter(Boolean))].sort().reverse();
   const allOleh = [...new Set(logs.map(l => l.JanaOleh).filter(Boolean))].sort();
+  const allJabatan = [...new Set(logs.flatMap(l => [...kodJabatanSet(l.KodKursus)]))].sort();
 
   return `
     <div class="page-title">🗂️ PDF Archive</div>
@@ -501,7 +502,14 @@ function renderFullPDFArchivePage() {
 
     <div class="card" style="padding:1rem 1.5rem;">
       <b class="text-sm" style="display:block;margin-bottom:10px;">🔍 Filter PDFs</b>
-      <div class="form-grid3">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;">
+        <div class="form-group mb-0">
+          <label>Department</label>
+          <select id="pdf-full-jabatan" onchange="filterFullPDFs()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:100%;">
+            <option value="">— All Departments —</option>
+            ${allJabatan.map(j => `<option value="${esc(j)}">${esc(j)}</option>`).join('')}
+          </select>
+        </div>
         <div class="form-group mb-0">
           <label>Course Code</label>
           <select id="pdf-full-kursus" onchange="filterFullPDFs()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:100%;">
@@ -531,13 +539,19 @@ function renderFullPDFArchivePage() {
     </div>`;
 }
 
+function kodJabatanSet(kod) {
+  return new Set(programKursusList.filter(p => p.KodKursus === kod).map(p => p.Jabatan).filter(Boolean));
+}
+
 function filterFullPDFs() {
   const kod = document.getElementById('pdf-full-kursus')?.value || '';
   const sesi = document.getElementById('pdf-full-sesi')?.value || '';
   const oleh = document.getElementById('pdf-full-oleh')?.value || '';
+  const jab = document.getElementById('pdf-full-jabatan')?.value || '';
   const assignedKod = currentUser.KodKursus;
   let logs = pdfLogList.slice().reverse();
   if (currentUser.Peranan !== 'admin' && assignedKod) logs = logs.filter(l => l.KodKursus === assignedKod);
+  if (jab) logs = logs.filter(l => kodJabatanSet(l.KodKursus).has(jab));
   if (kod) logs = logs.filter(l => l.KodKursus === kod);
   if (sesi) logs = logs.filter(l => l.Sesi === sesi);
   if (oleh) logs = logs.filter(l => l.JanaOleh === oleh);
@@ -910,9 +924,15 @@ function renderReportsPage() {
 
   // Get unique sessions for filter
   const sessions = [...new Set(visibleReports.map(r => r.Sesi).filter(Boolean))].sort().reverse();
+  const jabatans = [...new Set(visibleReports.map(r => r.Jabatan).filter(Boolean))].sort();
   const filterHTML = `
-    <div class="flex items-center gap-8" style="margin-bottom:1rem;">
-      <label class="text-sm" style="white-space:nowrap;font-weight:500;">Filter by Session:</label>
+    <div class="flex items-center gap-8" style="margin-bottom:1rem;flex-wrap:wrap;">
+      <label class="text-sm" style="white-space:nowrap;font-weight:500;">Department:</label>
+      <select id="jabatan-filter-reports" onchange="filterReportsBySession()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;">
+        <option value="">— All Departments —</option>
+        ${jabatans.map(j => `<option value="${esc(j)}">${esc(j)}</option>`).join('')}
+      </select>
+      <label class="text-sm" style="white-space:nowrap;font-weight:500;">Session:</label>
       <select id="session-filter-reports" onchange="filterReportsBySession()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;">
         <option value="">— All Sessions —</option>
         ${sessions.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('')}
@@ -921,7 +941,7 @@ function renderReportsPage() {
     </div>`;
 
   const rows = visibleReports.map((r, i) => `
-    <tr class="report-row" data-sesi="${esc(r.Sesi)}">
+    <tr class="report-row" data-sesi="${esc(r.Sesi)}" data-jabatan="${esc(r.Jabatan || '')}">
       <td style="color:var(--text-muted);font-size:12px;">${i + 1}</td>
       <td><span class="tag tag-blue">${esc(r.KodKursus)}</span></td>
       <td>${esc(r.NamaKursus)}</td>
@@ -3611,11 +3631,12 @@ function renderPDFArchivePage() {
    =================================================================== */
 
 function filterReportsBySession() {
-  const sel = document.getElementById('session-filter-reports');
-  const val = sel?.value || '';
+  const sesiVal = document.getElementById('session-filter-reports')?.value || '';
+  const jabVal = document.getElementById('jabatan-filter-reports')?.value || '';
   document.querySelectorAll('#reports-tbody .report-row').forEach(row => {
     const sesi = row.getAttribute('data-sesi') || '';
-    row.style.display = (!val || sesi === val) ? '' : 'none';
+    const jab = row.getAttribute('data-jabatan') || '';
+    row.style.display = ((!sesiVal || sesi === sesiVal) && (!jabVal || jab === jabVal)) ? '' : 'none';
   });
 }
 
