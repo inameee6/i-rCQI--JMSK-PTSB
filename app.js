@@ -3714,8 +3714,8 @@ async function duplicateReport(id) {
     QualityObj1Tindakan: '',
     QualityObj2Capai: '',
     QualityObj2Tindakan: '',
-    CLOData: JSON.stringify(safeParseArr(r.CLOData).map(c => ({ ...c, pct: '', pctLepas: c.pct || '' }))),
-    PLOData: JSON.stringify(safeParseArr(r.PLOData).map(p => ({ ...p, pct: '', pctLepas: p.pct || '' }))),
+    CLOData: JSON.stringify(safeParseArr(r.CLOData).map(c => ({ ...c, pct: '', pctLepas: '', pctGA: '', pctGALepas: '' }))),
+    PLOData: JSON.stringify(safeParseArr(r.PLOData).map(p => ({ ...p, pct: '', pctLepas: '', pctGA: '', pctGALepas: '' }))),
     // Section 6 — Comments
     Ulasan: r.Ulasan,
     Cadangan: r.Cadangan,
