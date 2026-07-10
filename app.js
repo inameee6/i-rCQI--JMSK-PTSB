@@ -959,7 +959,7 @@ function renderReportsPage() {
         <button class="btn btn-outline btn-sm" onclick="openReportDetail('${r.ID}')">Verify</button>
         <button class="btn btn-outline btn-sm" onclick="openReportForm('${r.ID}')">Edit</button>
         <button class="btn btn-outline btn-sm" onclick="duplicateReport('${r.ID}')" title="Copy this report to new session">⧉ Copy</button>
-        ${currentUser.Peranan === 'admin' ? `<button class="btn btn-red btn-sm" onclick="deleteReport('${r.ID}')">Delete</button>` : ''}
+        ${['admin', 'penyelaras'].includes(currentUser.Peranan) ? `<button class="btn btn-red btn-sm" onclick="deleteReport('${r.ID}')">Delete</button>` : ''}
       </td>
     </tr>`).join('');
 
@@ -1089,6 +1089,29 @@ function safeParseObj(s) {
 
 let pendingFiles = { minit: null, aktiviti: null };
 
+function fmtDateInput(v) {
+  if (v === null || v === undefined) return '';
+  const s = String(v).trim();
+  if (!s) return '';
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if (m) return `${m[3]}-${String(m[2]).padStart(2, '0')}-${String(m[1]).padStart(2, '0')}`;
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return '';
+}
+function fmtTimeInput(v) {
+  if (v === null || v === undefined) return '';
+  const s = String(v).trim();
+  if (!s) return '';
+  const m = s.match(/(\d{1,2}):(\d{2})/);
+  if (m) return `${String(m[1]).padStart(2, '0')}:${m[2]}`;
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  return '';
+}
+
 function openReportForm(id) {
   editingReportId = id || null;
   const existing = id ? cqiReports.find(r => r.ID === id) : null;
@@ -1161,8 +1184,8 @@ function openReportForm(id) {
             </div>
             <div class="form-hint mt-1">Tick all lecturers who attended the meeting.</div>
           </div>
-          <div class="form-group"><label>2.2 Date</label><input type="date" id="f-minit-tarikh" value="${esc(existing?.MinitTarikh)}"></div>
-          <div class="form-group"><label>2.3 Time</label><input type="time" id="f-minit-masa" value="${esc(existing?.MinitMasa)}"></div>
+          <div class="form-group"><label>2.2 Date</label><input type="date" id="f-minit-tarikh" value="${esc(fmtDateInput(existing?.MinitTarikh))}"></div>
+          <div class="form-group"><label>2.3 Time</label><input type="time" id="f-minit-masa" value="${esc(fmtTimeInput(existing?.MinitMasa))}"></div>
           <div class="form-group"><label>2.4 Venue</label><input id="f-minit-tempat" value="${esc(existing?.MinitTempat)}"></div>
         </div>
       </div>
@@ -1181,7 +1204,7 @@ function openReportForm(id) {
         <div class="card-title mb-0"><span class="card-num">4</span>CQI Programme / Activity / Task</div>
         <div class="form-grid mt-2">
           <div class="form-group full"><label>4.1 Activity / Programme Name</label><input id="f-akt-nama" value="${esc(existing?.AktivitiNama)}"></div>
-          <div class="form-group"><label>4.2 Implementation Date</label><input type="date" id="f-akt-tarikh" value="${esc(existing?.AktivitiTarikh)}"></div>
+          <div class="form-group"><label>4.2 Implementation Date</label><input type="date" id="f-akt-tarikh" value="${esc(fmtDateInput(existing?.AktivitiTarikh))}"></div>
           <div class="form-group"><label>4.3 Number of Students</label><input type="number" id="f-akt-pelajar" value="${esc(existing?.AktivitiBilPelajar)}"></div>
           <div class="form-group full"><label>4.4 Objective</label><textarea id="f-akt-objektif" style="min-height:50px;">${esc(existing?.AktivitiObjektif)}</textarea></div>
           <div class="form-group full"><label>4.5 Activity Summary</label><textarea id="f-akt-ringkasan" style="min-height:60px;">${esc(existing?.AktivitiRingkasan)}</textarea></div>
@@ -1209,12 +1232,12 @@ function openReportForm(id) {
             💡 <b>How to fill:</b> Enter the <b>percentage (%) of students</b> for each grade. Total of all grades must equal <b>100%</b>. Previous session data will auto-fill when you select a previous session above (📂 box).
           </div>
           <div class="table-wrap mt-1">
-            <table style="font-size:11px;">
+            <table style="font-size:11px;width:100%;table-layout:fixed;border-collapse:collapse;">
               <thead>
                 <tr>
-                  <th style="background:var(--bg2);min-width:80px;">Session</th>
+                  <th style="background:var(--bg2);width:60px;">Session</th>
                   ${['A+','A','A-','B+','B','B-','C+','C','C-','D+','D','E','E-','F'].map(g=>`<th>${g}</th>`).join('')}
-                  <th style="background:var(--primary-light);color:var(--primary);">Total</th>
+                  <th style="background:var(--primary-light);color:var(--primary);width:50px;">Total</th>
                 </tr>
               </thead>
               <tbody>
@@ -1222,7 +1245,7 @@ function openReportForm(id) {
                   <td style="font-weight:600;font-size:11px;color:var(--primary);padding:4px 6px;">Current</td>
                   ${['A+','A','A-','B+','B','B-','C+','C','C-','D+','D','E','E-','F'].map(g => {
                     const gd = safeParseObj(existing?.GredData);
-                    return `<td><input type="number" step="0.1" min="0" max="100" data-grade="${g}" value="${esc(gd[g] || '')}" style="width:48px;padding:4px;font-size:11px;" oninput="if(parseFloat(this.value)<0)this.value=0; autoCalcQO()"></td>`;
+                    return `<td><input type="number" step="0.1" min="0" max="100" data-grade="${g}" value="${esc(gd[g] || '')}" style="width:100%;padding:3px 1px;font-size:11px;box-sizing:border-box;text-align:center;" oninput="if(parseFloat(this.value)<0)this.value=0; autoCalcQO()"></td>`;
                   }).join('')}
                   <td id="grade-total" style="font-weight:700;font-size:12px;color:var(--primary);text-align:center;vertical-align:middle;">0%</td>
                 </tr>
@@ -1230,7 +1253,7 @@ function openReportForm(id) {
                   <td style="font-weight:600;font-size:11px;color:var(--gray);padding:4px 6px;">Previous</td>
                   ${['A+','A','A-','B+','B','B-','C+','C','C-','D+','D','E','E-','F'].map(g => {
                     const gdPrev = safeParseObj(existing?.GredDataLepas);
-                    return `<td><input type="number" step="0.1" min="0" max="100" data-grade-prev="${g}" value="${esc(gdPrev[g] || '')}" style="width:48px;padding:4px;font-size:11px;background:#F8F9FA;" readonly></td>`;
+                    return `<td><input type="number" step="0.1" min="0" max="100" data-grade-prev="${g}" value="${esc(gdPrev[g] || '')}" style="width:100%;padding:3px 1px;font-size:11px;background:#F8F9FA;box-sizing:border-box;text-align:center;" readonly></td>`;
                   }).join('')}
                   <td id="grade-total-prev" style="font-weight:700;font-size:12px;color:var(--gray);text-align:center;vertical-align:middle;">—</td>
                 </tr>
@@ -3673,15 +3696,15 @@ async function duplicateReport(id) {
     BilPelajar: r.BilPelajar,
     // Section 2 — Minutes (keep venue & attendance, clear date/time for new session)
     MinitKehadiran: r.MinitKehadiran,
-    MinitTarikh: '',
-    MinitMasa: '',
+    MinitTarikh: r.MinitTarikh || '',
+    MinitMasa: r.MinitMasa || '',
     MinitTempat: r.MinitTempat,
     // Section 3 — Issues
     IsuCLO: r.IsuCLO,
     IsuPLO: r.IsuPLO,
     // Section 4 — Activity
     AktivitiNama: r.AktivitiNama,
-    AktivitiTarikh: '',
+    AktivitiTarikh: r.AktivitiTarikh || '',
     AktivitiBilPelajar: '',
     AktivitiObjektif: r.AktivitiObjektif,
     AktivitiRingkasan: r.AktivitiRingkasan,
