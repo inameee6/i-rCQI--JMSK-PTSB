@@ -914,8 +914,14 @@ function renderReportsPage() {
   // Get unique sessions for filter
   const sessions = [...new Set(visibleReports.map(r => r.Sesi).filter(Boolean))].sort().reverse();
   const programs = [...new Set(visibleReports.map(r => r.Program).filter(Boolean))].sort();
+  const courses = [...new Set(visibleReports.map(r => r.KodKursus).filter(Boolean))].sort();
   const filterHTML = `
     <div class="flex items-center gap-8" style="margin-bottom:1rem;flex-wrap:wrap;">
+      <label class="text-sm" style="white-space:nowrap;font-weight:500;">Course:</label>
+      <select id="kod-filter-reports" onchange="filterReportsBySession()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;">
+        <option value="">— All Courses —</option>
+        ${courses.map(k => `<option value="${esc(k)}">${esc(k)}</option>`).join('')}
+      </select>
       <label class="text-sm" style="white-space:nowrap;font-weight:500;">Programme:</label>
       <select id="program-filter-reports" onchange="filterReportsBySession()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;">
         <option value="">— All Programmes —</option>
@@ -930,7 +936,7 @@ function renderReportsPage() {
     </div>`;
 
   const rows = visibleReports.map((r, i) => `
-    <tr class="report-row" data-sesi="${esc(r.Sesi)}" data-program="${esc(r.Program || '')}">
+    <tr class="report-row" data-sesi="${esc(r.Sesi)}" data-program="${esc(r.Program || '')}" data-kod="${esc(r.KodKursus || '')}">
       <td style="color:var(--text-muted);font-size:12px;">${i + 1}</td>
       <td><span class="tag tag-blue">${esc(r.KodKursus)}</span></td>
       <td>${esc(r.NamaKursus)}</td>
@@ -1076,11 +1082,10 @@ function fmtDateInput(v) {
   if (v === null || v === undefined) return '';
   const s = String(v).trim();
   if (!s) return '';
-  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
-  m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;                       // pure date, no shift
+  const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);       // dd/mm/yyyy
   if (m) return `${m[3]}-${String(m[2]).padStart(2, '0')}-${String(m[1]).padStart(2, '0')}`;
-  const d = new Date(s);
+  const d = new Date(s);                                              // ISO datetime -> LOCAL
   if (!isNaN(d.getTime())) return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   return '';
 }
@@ -1088,9 +1093,9 @@ function fmtTimeInput(v) {
   if (v === null || v === undefined) return '';
   const s = String(v).trim();
   if (!s) return '';
-  const m = s.match(/(\d{1,2}):(\d{2})/);
-  if (m) return `${String(m[1]).padStart(2, '0')}:${m[2]}`;
-  const d = new Date(s);
+  const p = s.match(/^(\d{1,2}):(\d{2})$/);                          // pure HH:MM, no shift
+  if (p) return `${String(p[1]).padStart(2, '0')}:${p[2]}`;
+  const d = new Date(s);                                              // datetime -> LOCAL
   if (!isNaN(d.getTime())) return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
   return '';
 }
@@ -1280,12 +1285,12 @@ function openReportForm(id) {
         <div class="mt-2">
           <b class="text-sm">5.3 Course Learning Outcome (CLO)</b>
           <div class="text-sm text-muted" style="font-size:11px;margin:2px 0 4px;">Isi kolum <b>Now</b> (sesi semasa); <b>Prev</b> auto-isi dari sesi lepas.</div>
-          <div style="display:grid;grid-template-columns:46px 1fr 68px 68px 48px 68px 68px 48px;align-items:end;gap:2px;margin-top:6px;">
+          <div style="display:grid;grid-template-columns:56px 1fr 64px 64px 44px 64px 64px 44px;align-items:end;gap:2px;margin-top:6px;">
             <span></span><span></span>
             <span style="grid-column:span 3;text-align:center;font-weight:700;font-size:11px;color:var(--primary);border-bottom:2px solid #B5D4F4;padding-bottom:2px;">Group Attainment (%)</span>
             <span style="grid-column:span 3;text-align:center;font-weight:700;font-size:11px;color:var(--primary);border-bottom:2px solid #B5D4F4;padding-bottom:2px;">Student Achievement ≥50% (%)</span>
           </div>
-          <div class="repeat-header" style="grid-template-columns:46px 1fr 68px 68px 48px 68px 68px 48px;" id="clo-header-row"><span>CLO</span><span>Description</span><span>Now</span><span>Prev</span><span>Diff</span><span>Now</span><span>Prev</span><span>Diff</span></div>
+          <div class="repeat-header" style="grid-template-columns:56px 1fr 64px 64px 44px 64px 64px 44px;" id="clo-header-row"><span>CLO</span><span>Description</span><span>Now</span><span>Prev</span><span>Diff</span><span>Now</span><span>Prev</span><span>Diff</span></div>
           <div id="clo-rows"></div>
           <div class="text-sm text-muted mt-1" id="clo-empty-msg">Select course first to display CLO.</div>
         </div>
@@ -1293,12 +1298,12 @@ function openReportForm(id) {
         <div class="mt-2">
           <b class="text-sm">5.4 Programme Learning Outcome (PLO)</b>
           <div class="text-sm text-muted" style="font-size:11px;margin:2px 0 4px;">Isi kolum <b>Now</b> (sesi semasa); <b>Prev</b> auto-isi dari sesi lepas.</div>
-          <div style="display:grid;grid-template-columns:46px 1fr 68px 68px 48px 68px 68px 48px;align-items:end;gap:2px;margin-top:6px;">
+          <div style="display:grid;grid-template-columns:56px 1fr 64px 64px 44px 64px 64px 44px;align-items:end;gap:2px;margin-top:6px;">
             <span></span><span></span>
             <span style="grid-column:span 3;text-align:center;font-weight:700;font-size:11px;color:var(--primary);border-bottom:2px solid #B5D4F4;padding-bottom:2px;">Group Attainment (%)</span>
             <span style="grid-column:span 3;text-align:center;font-weight:700;font-size:11px;color:var(--primary);border-bottom:2px solid #B5D4F4;padding-bottom:2px;">Student Achievement ≥50% (%)</span>
           </div>
-          <div class="repeat-header" style="grid-template-columns:46px 1fr 68px 68px 48px 68px 68px 48px;" id="plo-header-row"><span>PLO</span><span>Description</span><span>Now</span><span>Prev</span><span>Diff</span><span>Now</span><span>Prev</span><span>Diff</span></div>
+          <div class="repeat-header" style="grid-template-columns:56px 1fr 64px 64px 44px 64px 64px 44px;" id="plo-header-row"><span>PLO</span><span>Description</span><span>Now</span><span>Prev</span><span>Diff</span><span>Now</span><span>Prev</span><span>Diff</span></div>
           <div id="plo-rows"></div>
           <div class="text-sm text-muted mt-1" id="plo-empty-msg">Select Department, Programme &amp; course first to display PLO.</div>
         </div>
@@ -1349,6 +1354,10 @@ function openReportForm(id) {
           <button class="btn btn-outline btn-sm" type="button" onclick="clearSigCanvas('coord')">Clear</button>
           <label class="btn btn-outline btn-sm" style="cursor:pointer;margin:0;">📤 Upload signature<input type="file" accept="image/*" style="display:none;" onchange="uploadSigImage('coord', this)"></label>
           <span class="text-muted" style="font-size:11px;">Draw or upload. Signed by: <b>${esc(currentUser.Nama)}</b></span>
+        </div>
+        <div class="form-group mt-2" style="max-width:220px;">
+          <label>Signing Date</label>
+          <input type="date" id="f-coord-sign-date" value="${fmtDateInput(existing?.TarikhPenyelaras) || new Date().toISOString().split('T')[0]}">
         </div>
       </div>
 
@@ -1474,13 +1483,13 @@ function onKursusChange() {
   const savedClos = existing && existing.KodKursus === kod ? safeParseArr(existing.CLOData) : [];
   const savedPlos = existing && existing.KodKursus === kod ? safeParseArr(existing.PLOData) : [];
 
-  const cloRows = clos.map(c => {
+  const cloRows = clos.map((c, i) => {
     const saved = savedClos.find(s => s.id === c.id);
-    return { id: c.id, desc: c.desc, pct: saved?.pct || '', pctLepas: saved?.pctLepas || '', pctGA: saved?.pctGA || '', pctGALepas: saved?.pctGALepas || '' };
+    return { id: c.id || ('CLO' + (i + 1)), desc: c.desc, pct: saved?.pct || '', pctLepas: saved?.pctLepas || '', pctGA: saved?.pctGA || '', pctGALepas: saved?.pctGALepas || '' };
   });
-  const ploRows = plos.map(p => {
+  const ploRows = plos.map((p, i) => {
     const saved = savedPlos.find(s => s.id === p.id);
-    return { id: p.id, desc: p.desc, pct: saved?.pct || '', pctLepas: saved?.pctLepas || '', pctGA: saved?.pctGA || '', pctGALepas: saved?.pctGALepas || '' };
+    return { id: p.id || ('PLO' + (i + 1)), desc: p.desc, pct: saved?.pct || '', pctLepas: saved?.pctLepas || '', pctGA: saved?.pctGA || '', pctGALepas: saved?.pctGALepas || '' };
   });
 
   renderOutcomeRows('clo', cloRows);
@@ -1734,7 +1743,7 @@ function renderOutcomeRows(kind, items) {
   items.forEach(d => {
     const row = document.createElement('div');
     row.className = 'repeat-row';
-    row.style.gridTemplateColumns = '46px 1fr 68px 68px 48px 68px 68px 48px';
+    row.style.gridTemplateColumns = '56px 1fr 64px 64px 44px 64px 64px 44px';
     row.innerHTML = `
       <input type="text" class="oc-id" value="${esc(d.id)}" readonly style="background:#F1EFE8;font-size:12px;">
       <input type="text" class="oc-desc" value="${esc(d.desc)}" readonly style="background:#F1EFE8;font-size:12px;" title="${esc(d.desc)}">
@@ -1973,7 +1982,7 @@ async function saveReportForm() {
       payload.SigPenyelarasData = coordCanvas.toDataURL('image/png');
       payload.SignedByPenyelaras = existing?.SignedByPenyelaras || currentUser.Nama;
       payload.StatusPenyelaras = 'Disahkan';
-      payload.TarikhPenyelaras = existing?.TarikhPenyelaras || new Date().toISOString();
+      payload.TarikhPenyelaras = (document.getElementById('f-coord-sign-date') && document.getElementById('f-coord-sign-date').value) || existing?.TarikhPenyelaras || new Date().toISOString().split('T')[0];
     }
 
     const result = await apiPost('saveCQIReport', { data: payload });
@@ -2055,6 +2064,16 @@ function openReportDetail(id) {
       </div>
     </div>`;
 
+  const _grades = (() => { try { return JSON.parse(r.GredData || '{}'); } catch (e) { return {}; } })();
+  const _gk = ['A+','A','A-','B+','B','B-','C+','C','C-','D+','D','E','E-','F'];
+  const _gtotal = _gk.reduce((a, g) => a + (parseFloat(_grades[g]) || 0), 0);
+  const _att = safeParseArr(r.MinitKehadiran);
+  const _attStr = _att.length ? _att.join(', ') : (r.MinitKehadiran && r.MinitKehadiran !== '[]' ? esc(r.MinitKehadiran) : '—');
+  const _iRow = (l, v) => `<tr><td class="text-muted" style="width:180px;vertical-align:top;">${l}</td><td>${(v === 0 || v) ? v : '—'}</td></tr>`;
+  const _ocTable = (items, idlabel) => items.length ? `<div class="table-wrap"><table style="font-size:12.5px;">
+      <thead><tr><th>${idlabel}</th><th>Description</th><th>GA Now</th><th>GA Prev</th><th>≥50 Now</th><th>≥50 Prev</th></tr></thead>
+      <tbody>${items.map(c => `<tr><td><b>${esc(c.id)}</b></td><td style="max-width:300px;">${esc(c.desc || '')}</td><td>${c.pctGA ? esc(c.pctGA) + '%' : '—'}</td><td>${c.pctGALepas ? esc(c.pctGALepas) + '%' : '—'}</td><td>${c.pct ? esc(c.pct) + '%' : '—'}</td><td>${c.pctLepas ? esc(c.pctLepas) + '%' : '—'}</td></tr>`).join('')}</tbody>
+    </table></div>` : '<p class="text-sm text-muted">No data.</p>';
   const root = document.getElementById('modal-root');
   root.innerHTML = `
   <div class="modal-bg open" id="modal-detail">
@@ -2067,23 +2086,62 @@ function openReportDetail(id) {
       <div class="section-block">
         <div class="card-title mb-0"><span class="card-num">1</span>Course Information</div>
         <table style="font-size:13px;margin-top:8px;">
-          <tr><td class="text-muted" style="width:180px;">Programme</td><td>${esc(r.Program)}</td></tr>
-          <tr><td class="text-muted">No. of Students</td><td>${esc(r.BilPelajar)}</td></tr>
-          <tr><td class="text-muted">Class &amp; Lecturer</td><td>${lecturers.map(l => typeof l === 'object' ? `${esc(l.kelas)} — ${esc(l.pensyarah)}` : esc(l)).join('<br>') || '—'}</td></tr>
-          <tr><td class="text-muted">Head of Course</td><td><b>${esc(headName)}</b></td></tr>
+          ${_iRow('Programme', esc(r.Program))}
+          ${_iRow('Code & Course Name', esc(r.KodKursus) + ' — ' + esc(r.NamaKursus))}
+          ${_iRow('Class & Lecturer', lecturers.map(l => typeof l === 'object' ? `${esc(l.kelas)} — ${esc(l.pensyarah)}` : esc(l)).join('<br>') || '—')}
+          ${_iRow('No. of Students', esc(r.BilPelajar))}
+          ${_iRow('Head of Course', '<b>' + esc(headName) + '</b>')}
         </table>
       </div>
 
       <div class="section-block">
-        <div class="card-title mb-0"><span class="card-num">5</span>CLO Achievement</div>
-        ${clos.length ? clos.map(c => `
-          <div class="text-sm" style="margin-bottom:6px;">
-            <b>${esc(c.id)}</b> — ${esc(c.desc)}:
-            <span style="color:var(--primary);">Current: ${esc(c.pct)}%</span>
-            ${c.pctLepas ? `| <span style="color:var(--gray);">Previous: ${esc(c.pctLepas)}%</span>
-            | <span style="color:${parseFloat(c.pct)-parseFloat(c.pctLepas)>=0?'var(--success)':'var(--danger)'};">
-              Diff: ${((parseFloat(c.pct)||0)-(parseFloat(c.pctLepas)||0)).toFixed(1)}%</span>` : ''}
-          </div>`).join('') : '<p class="text-sm text-muted">No CLO data.</p>'}
+        <div class="card-title mb-0"><span class="card-num">2</span>Discussion Minutes</div>
+        <table style="font-size:13px;margin-top:8px;">
+          ${_iRow('Attendance', _attStr)}
+          ${_iRow('Date', esc(r.MinitTarikh))}
+          ${_iRow('Time', esc(r.MinitMasa))}
+          ${_iRow('Venue', esc(r.MinitTempat))}
+        </table>
+      </div>
+
+      <div class="section-block">
+        <div class="card-title mb-0"><span class="card-num">3</span>CLO / PLO Issues</div>
+        <table style="font-size:13px;margin-top:8px;">
+          ${_iRow('CLO Issues', esc(r.IsuCLO))}
+          ${_iRow('PLO Issues', esc(r.IsuPLO))}
+        </table>
+      </div>
+
+      <div class="section-block">
+        <div class="card-title mb-0"><span class="card-num">4</span>CQI Programme / Activity</div>
+        <table style="font-size:13px;margin-top:8px;">
+          ${_iRow('Activity Name', esc(r.AktivitiNama))}
+          ${_iRow('Implementation Date', esc(r.AktivitiTarikh))}
+          ${_iRow('No. of Students', esc(r.AktivitiBilPelajar))}
+          ${_iRow('Objective', esc(r.AktivitiObjektif))}
+          ${_iRow('Summary', esc(r.AktivitiRingkasan))}
+        </table>
+      </div>
+
+      <div class="section-block">
+        <div class="card-title mb-0"><span class="card-num">5</span>Student Performance</div>
+        <div class="text-sm" style="font-weight:600;margin:8px 0 4px;">5.1 Student Grades (% of students)</div>
+        ${_gtotal > 0 ? `<div class="table-wrap"><table style="font-size:12px;">
+          <thead><tr>${_gk.map(g => `<th>${g}</th>`).join('')}<th>Total</th></tr></thead>
+          <tbody><tr>${_gk.map(g => `<td>${_grades[g] ? esc(_grades[g]) : '0'}</td>`).join('')}<td><b>${_gtotal.toFixed(1)}%</b></td></tr></tbody>
+        </table></div>` : '<p class="text-sm text-muted">No grade data.</p>'}
+        <div class="text-sm" style="font-weight:600;margin:12px 0 4px;">5.3 Course Learning Outcome (CLO)</div>
+        ${_ocTable(clos, 'CLO')}
+        <div class="text-sm" style="font-weight:600;margin:12px 0 4px;">5.4 Programme Learning Outcome (PLO)</div>
+        ${_ocTable(plos, 'PLO')}
+      </div>
+
+      <div class="section-block">
+        <div class="card-title mb-0"><span class="card-num">6</span>Comments & Suggestions</div>
+        <table style="font-size:13px;margin-top:8px;">
+          ${_iRow('Comments', esc(r.Ulasan))}
+          ${_iRow('Suggestions', esc(r.Cadangan))}
+        </table>
       </div>
 
       <div class="section-block">
@@ -3645,10 +3703,12 @@ function renderPDFArchivePage() {
 function filterReportsBySession() {
   const sesiVal = document.getElementById('session-filter-reports')?.value || '';
   const progVal = document.getElementById('program-filter-reports')?.value || '';
+  const kodVal = document.getElementById('kod-filter-reports')?.value || '';
   document.querySelectorAll('#reports-tbody .report-row').forEach(row => {
     const sesi = row.getAttribute('data-sesi') || '';
     const prog = row.getAttribute('data-program') || '';
-    row.style.display = ((!sesiVal || sesi === sesiVal) && (!progVal || prog === progVal)) ? '' : 'none';
+    const kod = row.getAttribute('data-kod') || '';
+    row.style.display = ((!sesiVal || sesi === sesiVal) && (!progVal || prog === progVal) && (!kodVal || kod === kodVal)) ? '' : 'none';
   });
 }
 
@@ -3688,7 +3748,7 @@ async function duplicateReport(id) {
     // Section 4 — Activity
     AktivitiNama: r.AktivitiNama,
     AktivitiTarikh: r.AktivitiTarikh || '',
-    AktivitiBilPelajar: '',
+    AktivitiBilPelajar: r.AktivitiBilPelajar || '',
     AktivitiObjektif: r.AktivitiObjektif,
     AktivitiRingkasan: r.AktivitiRingkasan,
     // Section 5 — CLEARED
