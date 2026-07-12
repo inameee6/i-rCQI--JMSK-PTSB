@@ -203,6 +203,17 @@ async function reloadReports() {
   } catch (e) { /* senyap — data akan segar pada muat semula seterusnya */ }
 }
 
+// Muat semula LOG PDF sahaja (1 panggilan) — untuk jana/padam arkib yang lebih pantas
+async function reloadPDFLogs() {
+  try {
+    const r = await apiGet('getPDFLog');
+    if (r.success) {
+      pdfLogList = r.data;
+      if (currentPage === 'pdfarchive' || currentPage === 'dashboard') refreshCurrentPage();
+    }
+  } catch (e) { /* senyap */ }
+}
+
 async function loadUsers() {
   try {
     const res = await apiGet('getUsers');
@@ -545,8 +556,9 @@ async function deletePDFLog(i) {
     });
     if (result.success) {
       toast('Archive entry deleted.', 'success');
-      await loadAllData();
-      showPage('pdfarchive');
+      pdfLogList = pdfLogList.filter(x => l.ID ? String(x.ID) !== String(l.ID) : (x.NamaFail !== l.NamaFail || x.DriveURL !== l.DriveURL));
+      showPage('pdfarchive');   // kemas kini serta-merta
+      reloadPDFLogs();          // segerak di latar belakang (1 panggilan)
     } else {
       toast(result.message || 'Delete failed.', 'error');
     }
@@ -2858,6 +2870,7 @@ function generateReportPDF(id) {
   }).then(result => {
     if (result.success) {
       toast(`✅ PDF saved to Google Drive successfully.`, 'success');
+      reloadPDFLogs();   // segarkan arkib supaya PDF baharu terus muncul
     } else {
       toast('PDF downloaded but failed to save to Drive: ' + result.message, 'error');
     }
