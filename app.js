@@ -1100,6 +1100,23 @@ function fmtTimeInput(v) {
   return '';
 }
 
+// Display formats: date dd/mm/yyyy, time h.mm AM/PM
+function fmtDateDisplay(v) {
+  const iso = fmtDateInput(v);
+  if (!iso) return '—';
+  const p = iso.split('-');
+  return `${p[2]}/${p[1]}/${p[0]}`;
+}
+function fmtTimeDisplay(v) {
+  const hm = fmtTimeInput(v);
+  if (!hm) return '—';
+  let h = parseInt(hm.split(':')[0], 10);
+  const m = hm.split(':')[1];
+  const ap = h >= 12 ? 'PM' : 'AM';
+  h = h % 12; if (h === 0) h = 12;
+  return `${h}.${m} ${ap}`;
+}
+
 function openReportForm(id) {
   editingReportId = id || null;
   const existing = id ? cqiReports.find(r => r.ID === id) : null;
@@ -2098,8 +2115,8 @@ function openReportDetail(id) {
         <div class="card-title mb-0"><span class="card-num">2</span>Discussion Minutes</div>
         <table style="font-size:13px;margin-top:8px;">
           ${_iRow('Attendance', _attStr)}
-          ${_iRow('Date', esc(r.MinitTarikh))}
-          ${_iRow('Time', esc(r.MinitMasa))}
+          ${_iRow('Date', fmtDateDisplay(r.MinitTarikh))}
+          ${_iRow('Time', fmtTimeDisplay(r.MinitMasa))}
           ${_iRow('Venue', esc(r.MinitTempat))}
         </table>
       </div>
@@ -2116,7 +2133,7 @@ function openReportDetail(id) {
         <div class="card-title mb-0"><span class="card-num">4</span>CQI Programme / Activity</div>
         <table style="font-size:13px;margin-top:8px;">
           ${_iRow('Activity Name', esc(r.AktivitiNama))}
-          ${_iRow('Implementation Date', esc(r.AktivitiTarikh))}
+          ${_iRow('Implementation Date', fmtDateDisplay(r.AktivitiTarikh))}
           ${_iRow('No. of Students', esc(r.AktivitiBilPelajar))}
           ${_iRow('Objective', esc(r.AktivitiObjektif))}
           ${_iRow('Summary', esc(r.AktivitiRingkasan))}
@@ -2558,8 +2575,8 @@ function generateReportPDF(id) {
   sectionTitle('2', 'Discussion Minutes');
   const kehadiranArr = safeParseArr(r.MinitKehadiran);
   fieldRow('Attendance:', kehadiranArr.length ? kehadiranArr.join(', ') : (r.MinitKehadiran || '—'));
-  fieldRow('Date:', r.MinitTarikh);
-  fieldRow('Time:', r.MinitMasa);
+  fieldRow('Date:', fmtDateDisplay(r.MinitTarikh));
+  fieldRow('Time:', fmtTimeDisplay(r.MinitMasa));
   fieldRow('Venue:', r.MinitTempat);
   y += 2;
 
@@ -2572,7 +2589,7 @@ function generateReportPDF(id) {
   // 4.0 Aktiviti CQI
   sectionTitle('4', 'CQI Programme / Activity / Task');
   fieldRow('Activity Name:', r.AktivitiNama);
-  fieldRow('Implementation Date:', r.AktivitiTarikh);
+  fieldRow('Implementation Date:', fmtDateDisplay(r.AktivitiTarikh));
   fieldRow('Number of Students:', r.AktivitiBilPelajar);
   fieldRow('Objective:', r.AktivitiObjektif, W - 2 * margin - 55);
   fieldRow('Summary:', r.AktivitiRingkasan, W - 2 * margin - 55);
