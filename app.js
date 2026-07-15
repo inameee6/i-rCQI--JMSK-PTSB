@@ -80,8 +80,8 @@ function loadingMsgFor(action) {
   return 'Processing\u2026';
 }
 
-async function apiPost(action, payload) {
-  showLoading(loadingMsgFor(action));
+async function apiPost(action, payload, silent) {
+  if (!silent) showLoading(loadingMsgFor(action));
   try {
     const res = await fetch(API_URL, {
       method: 'POST',
@@ -91,7 +91,7 @@ async function apiPost(action, payload) {
     if (!res.ok) throw new Error('Ralat rangkaian: ' + res.status);
     return await res.json();
   } finally {
-    hideLoading();
+    if (!silent) hideLoading();
   }
 }
 
@@ -548,21 +548,27 @@ async function deletePDFLog(i) {
   const l = _shownPdfLogs[i];
   if (!l) return;
   if (!confirm(`Delete this PDF archive entry?\n\n${l.NamaFail || l.KodKursus}\n\nThis removes the log entry (and its Drive file if linked). This cannot be undone.`)) return;
+  // Optimistic: buang dari paparan SERTA-MERTA
+  const backup = pdfLogList.slice();
+  pdfLogList = pdfLogList.filter(x => l.ID ? String(x.ID) !== String(l.ID) : (x.NamaFail !== l.NamaFail || x.DriveURL !== l.DriveURL));
+  if (currentPage === 'pdfarchive' || currentPage === 'dashboard') refreshCurrentPage();
+  toast('Deleting\u2026', 'success');
   try {
-    const result = await apiPost('deletePDFLog', {
-      id: l.ID || '',
-      driveURL: l.DriveURL || '',
-      namaFail: l.NamaFail || ''
-    });
+    // silent = true -> tiada overlay menyekat; proses di latar belakang
+    const result = await apiPost('deletePDFLog', { id: l.ID || '', driveURL: l.DriveURL || '', namaFail: l.NamaFail || '' }, true);
     if (result.success) {
       toast('Archive entry deleted.', 'success');
-      pdfLogList = pdfLogList.filter(x => l.ID ? String(x.ID) !== String(l.ID) : (x.NamaFail !== l.NamaFail || x.DriveURL !== l.DriveURL));
-      showPage('pdfarchive');   // kemas kini serta-merta
-      reloadPDFLogs();          // segerak di latar belakang (1 panggilan)
+      reloadPDFLogs();
     } else {
-      toast(result.message || 'Delete failed.', 'error');
+      pdfLogList = backup;
+      if (currentPage === 'pdfarchive' || currentPage === 'dashboard') refreshCurrentPage();
+      toast(result.message || 'Delete failed \u2014 restored.', 'error');
     }
-  } catch (err) { toast('Error: ' + err.message, 'error'); }
+  } catch (err) {
+    pdfLogList = backup;
+    if (currentPage === 'pdfarchive' || currentPage === 'dashboard') refreshCurrentPage();
+    toast('Error \u2014 restored: ' + err.message, 'error');
+  }
 }
 
 function donutChartSVG(segments, centerTop, centerSub) {
@@ -927,8 +933,14 @@ function renderReportsPage() {
   const sessions = [...new Set(visibleReports.map(r => r.Sesi).filter(Boolean))].sort().reverse();
   const programs = [...new Set(visibleReports.map(r => r.Program).filter(Boolean))].sort();
   const courses = [...new Set(visibleReports.map(r => r.KodKursus).filter(Boolean))].sort();
+  const jabatans = [...new Set(visibleReports.map(r => r.Jabatan).filter(Boolean))].sort();
   const filterHTML = `
     <div class="flex items-center gap-8" style="margin-bottom:1rem;flex-wrap:wrap;">
+      <label class="text-sm" style="white-space:nowrap;font-weight:500;">Department:</label>
+      <select id="jabatan-filter-reports" onchange="filterReportsBySession()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;">
+        <option value="">— All Departments —</option>
+        ${jabatans.map(j => `<option value="${esc(j)}">${esc(j)}</option>`).join('')}
+      </select>
       <label class="text-sm" style="white-space:nowrap;font-weight:500;">Course:</label>
       <select id="kod-filter-reports" onchange="filterReportsBySession()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;">
         <option value="">— All Courses —</option>
@@ -948,7 +960,7 @@ function renderReportsPage() {
     </div>`;
 
   const rows = visibleReports.map((r, i) => `
-    <tr class="report-row" data-sesi="${esc(r.Sesi)}" data-program="${esc(r.Program || '')}" data-kod="${esc(r.KodKursus || '')}">
+    <tr class="report-row" data-sesi="${esc(r.Sesi)}" data-program="${esc(r.Program || '')}" data-kod="${esc(r.KodKursus || '')}" data-jabatan="${esc(r.Jabatan || '')}">
       <td style="color:var(--text-muted);font-size:12px;">${i + 1}</td>
       <td><span class="tag tag-blue">${esc(r.KodKursus)}</span></td>
       <td>${esc(r.NamaKursus)}</td>
@@ -2856,6 +2868,10 @@ function generateReportPDF(id) {
       .reduce((data, byte) => data + String.fromCharCode(byte), '')
   );
 
+  // Optimistic: papar entri baharu dalam arkib serta-merta
+  pdfLogList.push({ ID: 'temp_' + Date.now(), KodKursus: r.KodKursus, Sesi: r.Sesi, JanaOleh: currentUser.Nama, NamaFail: fileName, DriveURL: '', TarikhJana: new Date().toISOString() });
+  if (currentPage === 'pdfarchive' || currentPage === 'dashboard') refreshCurrentPage();
+
   apiPost('savePDF', {
     data: {
       base64PDF: pdfBase64,
@@ -2867,7 +2883,7 @@ function generateReportPDF(id) {
       janaOleh: currentUser.Nama,
       reportId: r.ID,
     }
-  }).then(result => {
+  }, true).then(result => {
     if (result.success) {
       toast(`✅ PDF saved to Google Drive successfully.`, 'success');
       reloadPDFLogs();   // segarkan arkib supaya PDF baharu terus muncul
@@ -3734,11 +3750,13 @@ function filterReportsBySession() {
   const sesiVal = document.getElementById('session-filter-reports')?.value || '';
   const progVal = document.getElementById('program-filter-reports')?.value || '';
   const kodVal = document.getElementById('kod-filter-reports')?.value || '';
+  const jabVal = document.getElementById('jabatan-filter-reports')?.value || '';
   document.querySelectorAll('#reports-tbody .report-row').forEach(row => {
     const sesi = row.getAttribute('data-sesi') || '';
     const prog = row.getAttribute('data-program') || '';
     const kod = row.getAttribute('data-kod') || '';
-    row.style.display = ((!sesiVal || sesi === sesiVal) && (!progVal || prog === progVal) && (!kodVal || kod === kodVal)) ? '' : 'none';
+    const jab = row.getAttribute('data-jabatan') || '';
+    row.style.display = ((!sesiVal || sesi === sesiVal) && (!progVal || prog === progVal) && (!kodVal || kod === kodVal) && (!jabVal || jab === jabVal)) ? '' : 'none';
   });
 }
 
