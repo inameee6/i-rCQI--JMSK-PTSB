@@ -873,7 +873,45 @@ function renderDashCharts() {
     barChart('\u{1F4CA} CLO Achievement Comparison (%)', cloItems, 50) +
     barChart('\u{1F4CA} PLO Achievement Comparison (%)', ploItems, 50) +
     (comparedReports.length ? renderGradeTable(comparedReports) : '') +
+    (comparedReports.length ? renderQOTable(comparedReports) : '') +
     attachmentsCard;
+}
+
+function renderQOTable(reports) {
+  if (!reports.length) return '';
+  const dAndAbove = ['A+','A','A-','B+','B','B-','C+','C','C-','D+','D'];
+  const bAndAbove = ['A+','A','A-','B+','B','B-'];
+  const rows = reports.map(r => {
+    const gd = safeParseObj(r.GredData);
+    const total = Object.keys(gd).reduce((a, g) => a + (parseFloat(gd[g]) || 0), 0);
+    const course = courseMasterList.find(c => c.KodKursus === r.KodKursus);
+    const t1 = parseFloat(course?.QO1Threshold) || 90;
+    const t2 = parseFloat(course?.QO2Threshold) || 25;
+    const s1 = dAndAbove.reduce((a, g) => a + (parseFloat(gd[g]) || 0), 0);
+    const s2 = bAndAbove.reduce((a, g) => a + (parseFloat(gd[g]) || 0), 0);
+    const noData = total === 0;
+    const cell = (sum, th, label, action) => {
+      if (noData) return '<span class="text-muted">—</span>';
+      const pass = sum >= th;
+      return `<div style="font-weight:700;color:${pass ? 'var(--success)' : 'var(--danger)'};">${pass ? '✅ Yes' : '❌ No'}</div>
+        <div style="font-size:12px;color:#8a94a6;">Total ${label}: ${sum.toFixed(1)}% (Threshold: ≥${th}%)</div>
+        ${!pass && action ? `<div style="font-size:12px;color:#475569;margin-top:3px;font-style:italic;">Action: ${esc(action)}</div>` : ''}`;
+    };
+    return `<tr>
+      <td><span class="tag tag-blue">${esc(r.KodKursus)}</span></td>
+      <td>${esc(r.Program)}</td>
+      <td>${esc(r.Sesi)}</td>
+      <td style="vertical-align:top;">${cell(s1, t1, 'D and above', r.QualityObj1Tindakan)}</td>
+      <td style="vertical-align:top;">${cell(s2, t2, 'B and above', r.QualityObj2Tindakan)}</td>
+    </tr>`;
+  }).join('');
+  return `<div class="card" style="margin-bottom:1.25rem;">
+    <div class="card-title">🎯 Quality Objectives (5.2)</div>
+    <div class="table-wrap"><table style="font-size:13px;">
+      <thead><tr><th>Code</th><th>Prog</th><th>Session</th><th>QO1 — grade D and above</th><th>QO2 — grade B and above</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+  </div>`;
 }
 
 function renderGradeTable(reports) {
@@ -888,7 +926,7 @@ function renderGradeTable(reports) {
       ${gradeKeys.map(g => `<td style="text-align:center;font-size:12px;">${gd[g] || '—'}</td>`).join('')}
     </tr>`;
   }).join('');
-  return `<div class="card">
+  return `<div class="card" style="margin-bottom:1.25rem;">
     <div class="card-title">📊 Student Grade Distribution (%)</div>
     <div class="table-wrap"><table style="font-size:12px;">
       <thead><tr><th>Code</th><th>Prog</th><th>Session</th>${gradeKeys.map(g => `<th>${g}</th>`).join('')}</tr></thead>
@@ -1634,7 +1672,7 @@ function loadPreviousSessionData() {
   });
   const prevTotalEl = document.getElementById('grade-total-prev');
   if (prevTotalEl) {
-    prevTotalEl.textContent = prevTotal > 0 ? prevTotal.toFixed(1) + '%' : '—';
+    prevTotalEl.textContent = prevTotal > 0 ? gradeTotalDisplay(prevTotal) + '%' : '—';
     prevTotalEl.style.color = prevTotal >= 99 && prevTotal <= 101 ? 'var(--success)' : 'var(--gray)';
   }
 
@@ -1691,6 +1729,14 @@ function clearOutcomeRows() {
   document.getElementById('plo-empty-msg').style.display = 'block';
 }
 
+// Jumlah gred 5.1: buang ralat titik terapung, dan bundarkan ke 100.0 jika hampir
+// (setiap gred dibundar 1 titik perpuluhan -> jumlah boleh jadi 99.9 / 100.1).
+// Jurang yang lebih besar (cth 97%) SENGAJA dikekalkan supaya ralat isian tetap kelihatan.
+function gradeTotalDisplay(total) {
+  const t = Math.round((parseFloat(total) || 0) * 10) / 10;
+  return (t >= 99.5 && t <= 100.5) ? '100.0' : t.toFixed(1);
+}
+
 function autoCalcQO() {
   const grades = {};
   let total = 0;
@@ -1704,7 +1750,7 @@ function autoCalcQO() {
   const totalEl = document.getElementById('grade-total');
   const warnEl = document.getElementById('grade-total-warn');
   if (totalEl) {
-    totalEl.textContent = total.toFixed(1) + '%';
+    totalEl.textContent = gradeTotalDisplay(total) + '%';
     if (total === 0) { totalEl.style.color = 'var(--text-muted)'; }
     else if (total >= 99 && total <= 101) { totalEl.style.color = 'var(--success)'; }
     else if (total > 101) { totalEl.style.color = 'var(--danger)'; }
@@ -1712,10 +1758,10 @@ function autoCalcQO() {
   }
   if (warnEl) {
     if (total > 101) {
-      warnEl.textContent = `⚠️ Jumlah ${total.toFixed(1)}% melebihi 100% — sila semak semula nilai yang dimasukkan. Pastikan anda memasukkan PERATUSAN (%), bukan bilangan pelajar.`;
+      warnEl.textContent = `⚠️ Jumlah ${gradeTotalDisplay(total)}% melebihi 100% — sila semak semula nilai yang dimasukkan. Pastikan anda memasukkan PERATUSAN (%), bukan bilangan pelajar.`;
       warnEl.classList.remove('hidden');
     } else if (total > 0 && total < 99) {
-      warnEl.textContent = `ℹ️ Jumlah semasa: ${total.toFixed(1)}% — belum mencapai 100%. Sila pastikan semua gred sudah diisi.`;
+      warnEl.textContent = `ℹ️ Jumlah semasa: ${gradeTotalDisplay(total)}% — belum mencapai 100%. Sila pastikan semua gred sudah diisi.`;
       warnEl.classList.remove('hidden');
       warnEl.style.color = 'var(--amber)';
     } else {
@@ -2169,7 +2215,7 @@ function openReportDetail(id) {
         <div class="text-sm" style="font-weight:600;margin:8px 0 4px;">5.1 Student Grades (% of students)</div>
         ${_gtotal > 0 ? `<div class="table-wrap"><table style="font-size:12px;">
           <thead><tr>${_gk.map(g => `<th>${g}</th>`).join('')}<th>Total</th></tr></thead>
-          <tbody><tr>${_gk.map(g => `<td>${_grades[g] ? esc(_grades[g]) : '0'}</td>`).join('')}<td><b>${_gtotal.toFixed(1)}%</b></td></tr></tbody>
+          <tbody><tr>${_gk.map(g => `<td>${_grades[g] ? esc(_grades[g]) : '0'}</td>`).join('')}<td><b>${gradeTotalDisplay(_gtotal)}%</b></td></tr></tbody>
         </table></div>` : '<p class="text-sm text-muted">No grade data.</p>'}
         <div class="text-sm" style="font-weight:600;margin:12px 0 4px;">5.3 Course Learning Outcome (CLO)</div>
         ${_ocTable(clos, 'CLO')}
@@ -2648,7 +2694,7 @@ function generateReportPDF(id) {
   let totalCurr = 0;
   gradeKeys.forEach((g, i) => { const v = parseFloat(grades[g] || 0); totalCurr += v; doc.text(v > 0 ? v.toFixed(1) : '0', margin + labelW + i * colW + 1, y); });
   doc.setFont('helvetica', 'bold'); doc.setTextColor(24, 95, 165);
-  doc.text(totalCurr.toFixed(1) + '%', totalX, y);
+  doc.text(gradeTotalDisplay(totalCurr) + '%', totalX, y);
   doc.setTextColor(30, 30, 30); y += 6;
 
   // Previous session row
@@ -2659,7 +2705,7 @@ function generateReportPDF(id) {
   let totalPrev = 0;
   gradeKeys.forEach((g, i) => { const v = parseFloat(gradesPrev[g] || 0); totalPrev += v; doc.text(v > 0 ? v.toFixed(1) : '—', margin + labelW + i * colW + 1, y); });
   doc.setFont('helvetica', 'bold');
-  doc.text(totalPrev > 0 ? totalPrev.toFixed(1) + '%' : '—', totalX, y);
+  doc.text(totalPrev > 0 ? gradeTotalDisplay(totalPrev) + '%' : '—', totalX, y);
   doc.setTextColor(30, 30, 30); y += 10;
 
   // BAR CHART — 2 colours (Current vs Previous)
