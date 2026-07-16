@@ -881,36 +881,66 @@ function renderQOTable(reports) {
   if (!reports.length) return '';
   const dAndAbove = ['A+','A','A-','B+','B','B-','C+','C','C-','D+','D'];
   const bAndAbove = ['A+','A','A-','B+','B','B-'];
-  const rows = reports.map(r => {
+
+  const qoPanel = (n, sum, th, gradeLabel, action, noData) => {
+    const statement = `<b>\u2265${th}%</b> of students achieved <b>grade ${gradeLabel} and above</b>`;
+    if (noData) {
+      return `<div style="flex:1;min-width:280px;border:1px dashed #dbe1e8;border-radius:14px;padding:18px;background:#fafbfc;">
+        <div style="font-weight:800;font-size:16px;color:#1a2b45;margin-bottom:8px;">QO${n}</div>
+        <div style="font-size:14px;color:#475569;line-height:1.5;margin-bottom:12px;">${statement}</div>
+        <div style="font-size:13px;color:#8a94a6;">No grade data recorded yet.</div>
+      </div>`;
+    }
+    const pass = sum >= th;
+    const col = pass ? '#1f9d57' : '#c0392b';
+    const bg = pass ? '#e6f6ec' : '#fdecea';
+    const fill = Math.max(0, Math.min(100, sum));
+    const mark = Math.max(0, Math.min(100, th));
+    return `<div style="flex:1;min-width:280px;border:1px solid #e8ecf1;border-left:5px solid ${col};border-radius:14px;padding:18px;background:#fff;box-shadow:0 1px 3px rgba(16,24,40,.04);">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
+        <span style="font-weight:800;font-size:16px;color:#1a2b45;">QO${n}</span>
+        <span style="background:${bg};color:${col};font-weight:700;font-size:12px;padding:5px 12px;border-radius:20px;white-space:nowrap;">${pass ? '\u2705 ACHIEVED' : '\u274C NOT ACHIEVED'}</span>
+      </div>
+      <div style="font-size:14px;color:#475569;line-height:1.5;margin-bottom:14px;">${statement}</div>
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px;">
+        <span style="font-size:32px;font-weight:800;color:${col};line-height:1;">${sum.toFixed(1)}%</span>
+        <span style="font-size:13px;color:#8a94a6;">achieved</span>
+      </div>
+      <div style="position:relative;height:14px;background:#eef1f5;border-radius:8px;margin-bottom:7px;">
+        <div style="position:absolute;left:0;top:0;bottom:0;width:${fill}%;background:${col};border-radius:8px;"></div>
+        <div style="position:absolute;left:${mark}%;top:-3px;bottom:-3px;width:2px;background:#334155;" title="Target \u2265${th}%"></div>
+      </div>
+      <div style="font-size:12px;color:#8a94a6;">Target: \u2265${th}%  \u00b7  Marker shows the target line</div>
+      ${!pass && action ? `<div style="margin-top:12px;padding:10px 12px;background:#fff8e6;border-left:3px solid #e8a723;border-radius:7px;font-size:13px;color:#475569;line-height:1.5;"><b>Preventive / Corrective Action:</b> ${esc(action)}</div>` : ''}
+    </div>`;
+  };
+
+  const blocks = reports.map(r => {
     const gd = safeParseObj(r.GredData);
     const total = Object.keys(gd).reduce((a, g) => a + (parseFloat(gd[g]) || 0), 0);
+    const noData = total === 0;
     const course = courseMasterList.find(c => c.KodKursus === r.KodKursus);
     const t1 = parseFloat(course?.QO1Threshold) || 90;
     const t2 = parseFloat(course?.QO2Threshold) || 25;
     const s1 = dAndAbove.reduce((a, g) => a + (parseFloat(gd[g]) || 0), 0);
     const s2 = bAndAbove.reduce((a, g) => a + (parseFloat(gd[g]) || 0), 0);
-    const noData = total === 0;
-    const cell = (sum, th, label, action) => {
-      if (noData) return '<span class="text-muted">—</span>';
-      const pass = sum >= th;
-      return `<div style="font-weight:700;color:${pass ? 'var(--success)' : 'var(--danger)'};">${pass ? '✅ Yes' : '❌ No'}</div>
-        <div style="font-size:12px;color:#8a94a6;">Total ${label}: ${sum.toFixed(1)}% (Threshold: ≥${th}%)</div>
-        ${!pass && action ? `<div style="font-size:12px;color:#475569;margin-top:3px;font-style:italic;">Action: ${esc(action)}</div>` : ''}`;
-    };
-    return `<tr>
-      <td><span class="tag tag-blue">${esc(r.KodKursus)}</span></td>
-      <td>${esc(r.Program)}</td>
-      <td>${esc(r.Sesi)}</td>
-      <td style="vertical-align:top;">${cell(s1, t1, 'D and above', r.QualityObj1Tindakan)}</td>
-      <td style="vertical-align:top;">${cell(s2, t2, 'B and above', r.QualityObj2Tindakan)}</td>
-    </tr>`;
+    return `<div style="margin-bottom:22px;">
+      <div style="display:flex;align-items:center;gap:9px;margin-bottom:11px;flex-wrap:wrap;">
+        <span class="tag tag-blue" style="font-size:13px;">${esc(r.KodKursus)}</span>
+        <span style="font-size:14px;color:#475569;">${esc(r.Program || '\u2014')}</span>
+        <span style="color:#cbd5e1;">\u00b7</span>
+        <span style="font-size:14px;font-weight:700;color:#185FA5;">${esc(r.Sesi)}</span>
+      </div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;">
+        ${qoPanel(1, s1, t1, 'D', r.QualityObj1Tindakan, noData)}
+        ${qoPanel(2, s2, t2, 'B', r.QualityObj2Tindakan, noData)}
+      </div>
+    </div>`;
   }).join('');
+
   return `<div class="card" style="margin-bottom:1.25rem;">
-    <div class="card-title">🎯 Quality Objectives (5.2)</div>
-    <div class="table-wrap"><table style="font-size:13px;">
-      <thead><tr><th>Code</th><th>Prog</th><th>Session</th><th>QO1 — grade D and above</th><th>QO2 — grade B and above</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table></div>
+    <div class="card-title">\u{1F3AF} Quality Objectives</div>
+    <div style="margin-top:6px;">${blocks}</div>
   </div>`;
 }
 
