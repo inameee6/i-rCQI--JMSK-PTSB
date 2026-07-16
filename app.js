@@ -389,23 +389,23 @@ function renderDashboard() {
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;">
         <div class="form-group mb-0">
           <label>Department</label>
-          <select id="dash-filter-jabatan" onchange="renderDashCharts()">
+          <select id="dash-filter-jabatan" onchange="onDashFilterChange()">
             <option value="">— All Departments —</option>
             ${allJabatan.map(j => `<option value="${esc(j)}">${esc(j)}</option>`).join('')}
           </select>
         </div>
         <div class="form-group mb-0">
-          <label>Course Code</label>
-          <select id="dash-filter-kursus" onchange="renderDashCharts()">
-            <option value="">— All Courses —</option>
-            ${allKursus.map(k => `<option value="${esc(k)}">${esc(k)}</option>`).join('')}
+          <label>Programme</label>
+          <select id="dash-filter-program" onchange="onDashFilterChange()">
+            <option value="">— All Programmes —</option>
+            ${allProgram.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('')}
           </select>
         </div>
         <div class="form-group mb-0">
-          <label>Programme</label>
-          <select id="dash-filter-program" onchange="renderDashCharts()">
-            <option value="">— All Programmes —</option>
-            ${allProgram.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('')}
+          <label>Course Code</label>
+          <select id="dash-filter-kursus" onchange="onDashFilterChange()">
+            <option value="">— All Courses —</option>
+            ${allKursus.map(k => `<option value="${esc(k)}">${esc(k)}</option>`).join('')}
           </select>
         </div>
         <div class="form-group mb-0">
@@ -695,6 +695,45 @@ function exportDashboardCSV() {
 
 function setAcvTab(t) { _acvTab = t; renderDashCharts(); }
 
+// Penapis bersambung: Jabatan -> Program -> Kursus -> Sesi.
+// Setiap dropdown hanya papar pilihan yang wujud bagi pilihan di atasnya.
+// Pilihan semasa dikekalkan jika masih sah; jika tidak, ia diset semula ke "All".
+function refreshDashFilterOptions() {
+  const jabEl = document.getElementById('dash-filter-jabatan');
+  const progEl = document.getElementById('dash-filter-program');
+  const kodEl = document.getElementById('dash-filter-kursus');
+  const sesiAEl = document.getElementById('dash-filter-sesiA');
+  const sesiBEl = document.getElementById('dash-filter-sesiB');
+  if (!jabEl || !progEl || !kodEl) return;
+
+  const fill = (el, values, allLabel) => {
+    const keep = values.indexOf(el.value) >= 0 ? el.value : '';
+    el.innerHTML = `<option value="">${allLabel}</option>` +
+      values.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+    el.value = keep;
+    return keep;
+  };
+
+  const all = getVisibleReports();
+  const jab = jabEl.value;
+
+  const progPool = all.filter(r => !jab || r.Jabatan === jab);
+  const prog = fill(progEl, [...new Set(progPool.map(r => r.Program).filter(Boolean))].sort(), '\u2014 All Programmes \u2014');
+
+  const kodPool = progPool.filter(r => !prog || r.Program === prog);
+  const kod = fill(kodEl, [...new Set(kodPool.map(r => r.KodKursus).filter(Boolean))].sort(), '\u2014 All Courses \u2014');
+
+  const sesiPool = kodPool.filter(r => !kod || r.KodKursus === kod);
+  const sesis = [...new Set(sesiPool.map(r => r.Sesi).filter(Boolean))].sort().reverse();
+  if (sesiAEl) fill(sesiAEl, sesis, '\u2014 Select \u2014');
+  if (sesiBEl) fill(sesiBEl, sesis, '\u2014 None \u2014');
+}
+
+function onDashFilterChange() {
+  refreshDashFilterOptions();
+  renderDashCharts();
+}
+
 function renderDashCharts() {
   const kod = document.getElementById('dash-filter-kursus')?.value || '';
   const program = document.getElementById('dash-filter-program')?.value || '';
@@ -871,38 +910,14 @@ function renderDashCharts() {
     });
 
     const belowList = allOc.filter(x => x.a < 50);
-    tiles.push(belowList.length ? {
+    if (belowList.length) tiles.push({
       icon: '\u26A0', tone: 'bad',
       label: 'Below threshold',
       value: `${belowList.length} of ${allOc.length} outcomes`,
       detail: `Did not reach 50%: ${belowList.map(x => esc(x.id)).join(', ')}`
-    } : {
-      icon: '\u2713', tone: 'good',
-      label: 'Threshold status',
-      value: `All ${allOc.length} outcomes passed`,
-      detail: 'Every outcome with recorded data meets \u226550%'
     });
 
     const both = allOc.filter(x => x.b !== null && x.b !== undefined);
-    if (sesiB && both.length) {
-      const avgA2 = both.reduce((a, x) => a + x.a, 0) / both.length;
-      const avgB2 = both.reduce((a, x) => a + x.b, 0) / both.length;
-      const d = avgA2 - avgB2;
-      tiles.push({
-        icon: d >= 0 ? '\u25B2' : '\u25BC', tone: d >= 0 ? 'good' : 'bad',
-        label: 'Average achievement',
-        value: `${avgA2.toFixed(1)}%  (${d >= 0 ? '+' : ''}${d.toFixed(1)}%)`,
-        detail: `Mean of ${both.length} outcome(s): ${esc(sesiA)} = ${avgA2.toFixed(1)}% vs ${esc(sesiB)} = ${avgB2.toFixed(1)}%`
-      });
-    } else {
-      const avgA = allOc.reduce((a, x) => a + x.a, 0) / allOc.length;
-      tiles.push({
-        icon: '\u25CF', tone: 'neutral',
-        label: 'Average achievement',
-        value: `${avgA.toFixed(1)}%`,
-        detail: `Mean across ${allOc.length} outcome(s) in ${esc(sesiA || 'Session A')}`
-      });
-    }
 
     if (sesiB && both.length) {
       const drop = both.reduce((m, x) => (x.a - x.b) < (m.a - m.b) ? x : m);
@@ -927,7 +942,6 @@ function renderDashCharts() {
     <div class="card-title">\u{1F4A1} Insights${sesiA ? ' \u2014 ' + esc(sesiA) : ''}${sesiB ? ' vs ' + esc(sesiB) : ''}</div>
     <div style="font-size:12px;color:#8a94a6;margin:-2px 0 14px;line-height:1.55;">
       <b>How this is calculated:</b> taken from <b>Student Achievement \u226550% (Now)</b> in sections 5.3 (CLO) and 5.4 (PLO) of the reports matching the filters above.
-      Where a session has more than one report, the values are averaged per outcome. Outcomes with no recorded % are excluded.
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;">
       ${tiles.map(t => `<div style="border:1px solid #e8ecf1;border-left:4px solid ${_tc(t.tone)};border-radius:10px;padding:13px 15px;background:#fff;">
@@ -1103,19 +1117,19 @@ function renderReportsPage() {
   const filterHTML = `
     <div class="flex items-center gap-8" style="margin-bottom:1rem;flex-wrap:wrap;">
       <label class="text-sm" style="white-space:nowrap;font-weight:500;">Department:</label>
-      <select id="jabatan-filter-reports" onchange="filterReportsBySession()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;">
+      <select id="jabatan-filter-reports" onchange="onReportFilterChange()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;">
         <option value="">— All Departments —</option>
         ${jabatans.map(j => `<option value="${esc(j)}">${esc(j)}</option>`).join('')}
       </select>
-      <label class="text-sm" style="white-space:nowrap;font-weight:500;">Course:</label>
-      <select id="kod-filter-reports" onchange="filterReportsBySession()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;">
-        <option value="">— All Courses —</option>
-        ${courses.map(k => `<option value="${esc(k)}">${esc(k)}</option>`).join('')}
-      </select>
       <label class="text-sm" style="white-space:nowrap;font-weight:500;">Programme:</label>
-      <select id="program-filter-reports" onchange="filterReportsBySession()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;">
+      <select id="program-filter-reports" onchange="onReportFilterChange()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;">
         <option value="">— All Programmes —</option>
         ${programs.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('')}
+      </select>
+      <label class="text-sm" style="white-space:nowrap;font-weight:500;">Course:</label>
+      <select id="kod-filter-reports" onchange="onReportFilterChange()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;">
+        <option value="">— All Courses —</option>
+        ${courses.map(k => `<option value="${esc(k)}">${esc(k)}</option>`).join('')}
       </select>
       <label class="text-sm" style="white-space:nowrap;font-weight:500;">Session:</label>
       <select id="session-filter-reports" onchange="filterReportsBySession()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;">
@@ -3919,6 +3933,40 @@ function renderPDFArchivePage() {
 /* ===================================================================
    SESSION FILTER & DUPLICATE FUNCTIONS
    =================================================================== */
+
+// Penapis bersambung untuk CQI Reports: Jabatan -> Program -> Kursus -> Sesi
+function refreshReportFilterOptions() {
+  const jabEl = document.getElementById('jabatan-filter-reports');
+  const progEl = document.getElementById('program-filter-reports');
+  const kodEl = document.getElementById('kod-filter-reports');
+  const sesiEl = document.getElementById('session-filter-reports');
+  if (!jabEl || !progEl || !kodEl) return;
+
+  const fill = (el, values, allLabel) => {
+    const keep = values.indexOf(el.value) >= 0 ? el.value : '';
+    el.innerHTML = `<option value="">${allLabel}</option>` +
+      values.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+    el.value = keep;
+    return keep;
+  };
+
+  const all = getVisibleReports();
+  const jab = jabEl.value;
+
+  const progPool = all.filter(r => !jab || r.Jabatan === jab);
+  const prog = fill(progEl, [...new Set(progPool.map(r => r.Program).filter(Boolean))].sort(), '\u2014 All Programmes \u2014');
+
+  const kodPool = progPool.filter(r => !prog || r.Program === prog);
+  const kod = fill(kodEl, [...new Set(kodPool.map(r => r.KodKursus).filter(Boolean))].sort(), '\u2014 All Courses \u2014');
+
+  const sesiPool = kodPool.filter(r => !kod || r.KodKursus === kod);
+  if (sesiEl) fill(sesiEl, [...new Set(sesiPool.map(r => r.Sesi).filter(Boolean))].sort().reverse(), '\u2014 All Sessions \u2014');
+}
+
+function onReportFilterChange() {
+  refreshReportFilterOptions();
+  filterReportsBySession();
+}
 
 function filterReportsBySession() {
   const sesiVal = document.getElementById('session-filter-reports')?.value || '';
