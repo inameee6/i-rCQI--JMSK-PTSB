@@ -825,45 +825,88 @@ function renderDashCharts() {
     </div>`;
 
   // ---- auto insights ----
+  // Sumber: medan `pct` = "Student Achievement >=50% (Now)" dari 5.3 (CLO) & 5.4 (PLO),
+  // dipuratakan merentas laporan dalam sesi yang sama (ikut penapis Course/Programme).
   const allOc = [...cloItems.map(x => ({ ...x, type: 'CLO' })), ...ploItems.map(x => ({ ...x, type: 'PLO' }))].filter(x => x.a !== null && x.a !== undefined);
-  const insights = [];
+  const tiles = [];
   if (allOc.length) {
     const lowest = allOc.reduce((m, x) => x.a < m.a ? x : m);
-    insights.push({ icon: '\u25BC', tone: lowest.a < 50 ? 'bad' : 'neutral', text: `Lowest: <b>${lowest.type} ${esc(lowest.id)}</b> at <b>${lowest.a.toFixed(1)}%</b>` });
-    const below = allOc.filter(x => x.a < 50).length;
-    insights.push(below ? { icon: '\u26A0', tone: 'bad', text: `<b>${below}</b> outcome(s) below 50%` } : { icon: '\u2713', tone: 'good', text: `All outcomes meet \u226550%` });
-    if (sesiB) {
-      const both = allOc.filter(x => x.b !== null && x.b !== undefined);
-      if (both.length) {
-        const drop = both.reduce((m, x) => (x.a - x.b) < (m.a - m.b) ? x : m);
-        const gain = both.reduce((m, x) => (x.a - x.b) > (m.a - m.b) ? x : m);
-        const dd = drop.a - drop.b, gg = gain.a - gain.b;
-        if (dd < 0) insights.push({ icon: '\u25BC', tone: 'bad', text: `Biggest drop: <b>${drop.type} ${esc(drop.id)}</b> ${dd.toFixed(1)}% vs Session B` });
-        if (gg > 0) insights.push({ icon: '\u25B2', tone: 'good', text: `Biggest gain: <b>${gain.type} ${esc(gain.id)}</b> +${gg.toFixed(1)}% vs Session B` });
-      }
+    tiles.push({
+      icon: '\u25BC', tone: lowest.a < 50 ? 'bad' : 'neutral',
+      label: 'Lowest outcome',
+      value: `${lowest.type} ${esc(lowest.id)} \u2014 ${lowest.a.toFixed(1)}%`,
+      detail: `Lowest achievement in Session A${lowest.a < 50 ? ' \u2014 below the 50% threshold' : ' \u2014 still meets \u226550%'}`
+    });
+
+    const belowList = allOc.filter(x => x.a < 50);
+    tiles.push(belowList.length ? {
+      icon: '\u26A0', tone: 'bad',
+      label: 'Below threshold',
+      value: `${belowList.length} of ${allOc.length} outcomes`,
+      detail: `Did not reach 50%: ${belowList.map(x => esc(x.id)).join(', ')}`
+    } : {
+      icon: '\u2713', tone: 'good',
+      label: 'Threshold status',
+      value: `All ${allOc.length} outcomes passed`,
+      detail: 'Every outcome with recorded data meets \u226550%'
+    });
+
+    const both = allOc.filter(x => x.b !== null && x.b !== undefined);
+    if (sesiB && both.length) {
+      const avgA2 = both.reduce((a, x) => a + x.a, 0) / both.length;
+      const avgB2 = both.reduce((a, x) => a + x.b, 0) / both.length;
+      const d = avgA2 - avgB2;
+      tiles.push({
+        icon: d >= 0 ? '\u25B2' : '\u25BC', tone: d >= 0 ? 'good' : 'bad',
+        label: 'Average achievement',
+        value: `${avgA2.toFixed(1)}%  (${d >= 0 ? '+' : ''}${d.toFixed(1)}%)`,
+        detail: `Mean of ${both.length} outcome(s): ${esc(sesiA)} = ${avgA2.toFixed(1)}% vs ${esc(sesiB)} = ${avgB2.toFixed(1)}%`
+      });
+    } else {
+      const avgA = allOc.reduce((a, x) => a + x.a, 0) / allOc.length;
+      tiles.push({
+        icon: '\u25CF', tone: 'neutral',
+        label: 'Average achievement',
+        value: `${avgA.toFixed(1)}%`,
+        detail: `Mean across ${allOc.length} outcome(s) in ${esc(sesiA || 'Session A')}`
+      });
+    }
+
+    if (sesiB && both.length) {
+      const drop = both.reduce((m, x) => (x.a - x.b) < (m.a - m.b) ? x : m);
+      const gain = both.reduce((m, x) => (x.a - x.b) > (m.a - m.b) ? x : m);
+      const dd = drop.a - drop.b, gg = gain.a - gain.b;
+      if (dd < 0) tiles.push({
+        icon: '\u25BC', tone: 'bad',
+        label: 'Biggest drop',
+        value: `${drop.type} ${esc(drop.id)} \u2014 ${dd.toFixed(1)}%`,
+        detail: `${esc(sesiA)} = ${drop.a.toFixed(1)}%  vs  ${esc(sesiB)} = ${drop.b.toFixed(1)}%`
+      });
+      if (gg > 0) tiles.push({
+        icon: '\u25B2', tone: 'good',
+        label: 'Biggest gain',
+        value: `${gain.type} ${esc(gain.id)} \u2014 +${gg.toFixed(1)}%`,
+        detail: `${esc(sesiA)} = ${gain.a.toFixed(1)}%  vs  ${esc(sesiB)} = ${gain.b.toFixed(1)}%`
+      });
     }
   }
   const _tc = t => t === 'bad' ? '#c0392b' : t === 'good' ? '#1f9d57' : '#334155';
-  const _tb = t => t === 'bad' ? '#fdecea' : t === 'good' ? '#e9f7ef' : '#eef2f7';
-  const insightCard = insights.length ? `<div class="card" style="margin-bottom:1.25rem;">
+  const insightCard = tiles.length ? `<div class="card" style="margin-bottom:1.25rem;">
     <div class="card-title">\u{1F4A1} Insights${sesiA ? ' \u2014 ' + esc(sesiA) : ''}${sesiB ? ' vs ' + esc(sesiB) : ''}</div>
-    <div style="display:flex;flex-wrap:wrap;gap:10px;">
-      ${insights.map(i => `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:9px;background:${_tb(i.tone)};color:${_tc(i.tone)};font-size:13px;"><b style="font-size:14px;">${i.icon}</b><span>${i.text}</span></div>`).join('')}
+    <div style="font-size:12px;color:#8a94a6;margin:-2px 0 14px;line-height:1.55;">
+      <b>How this is calculated:</b> taken from <b>Student Achievement \u226550% (Now)</b> in sections 5.3 (CLO) and 5.4 (PLO) of the reports matching the filters above.
+      Where a session has more than one report, the values are averaged per outcome. Outcomes with no recorded % are excluded.
     </div>
-  </div>` : '';
-
-  const attachmentsCard = comparedReports.length ? `<div class="card" style="margin-bottom:1.25rem;">
-    <div class="card-title">📎 Report Attachments (by Programme & Session)</div>
-    <div class="table-wrap"><table style="font-size:13px;">
-      <thead><tr><th>Course</th><th>Programme</th><th>Session</th><th>7.1 Discussion Minutes</th><th>7.2 CQI Activity / Programme Report</th></tr></thead>
-      <tbody>${comparedReports.map(r => `<tr>
-        <td><span class="tag tag-blue">${esc(r.KodKursus)}</span></td>
-        <td>${esc(r.Program || '—')}</td>
-        <td>${esc(r.Sesi)}</td>
-        <td>${r.LampiranMinitURL ? `<a href="${esc(r.LampiranMinitURL)}" target="_blank" class="file-link">View ↗</a>` : '<span class="text-muted">—</span>'}</td>
-        <td>${r.LampiranAktivitiURL ? `<a href="${esc(r.LampiranAktivitiURL)}" target="_blank" class="file-link">View ↗</a>` : '<span class="text-muted">—</span>'}</td>
-      </tr>`).join('')}</tbody>
-    </table></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;">
+      ${tiles.map(t => `<div style="border:1px solid #e8ecf1;border-left:4px solid ${_tc(t.tone)};border-radius:10px;padding:13px 15px;background:#fff;">
+        <div style="display:flex;align-items:center;gap:7px;margin-bottom:7px;">
+          <span style="color:${_tc(t.tone)};font-size:13px;font-weight:700;">${t.icon}</span>
+          <span style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#8a94a6;font-weight:700;">${t.label}</span>
+        </div>
+        <div style="font-size:15px;font-weight:700;color:${_tc(t.tone)};margin-bottom:5px;">${t.value}</div>
+        <div style="font-size:12px;color:#69748a;line-height:1.5;">${t.detail}</div>
+      </div>`).join('')}
+    </div>
   </div>` : '';
 
   area.innerHTML =
@@ -882,36 +925,45 @@ function renderQOTable(reports) {
   const dAndAbove = ['A+','A','A-','B+','B','B-','C+','C','C-','D+','D'];
   const bAndAbove = ['A+','A','A-','B+','B','B-'];
 
+  // Ring gauge \u2014 tiada marker; sasaran dinyatakan sebagai teks
+  const ring = (pct, col) => {
+    const r = 38, c = 48, C = 2 * Math.PI * r;
+    const len = Math.max(0, Math.min(100, pct)) / 100 * C;
+    return `<svg viewBox="0 0 96 96" width="96" height="96" style="flex:0 0 auto;">
+      <circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="#eef1f5" stroke-width="10"/>
+      <circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="${col}" stroke-width="10" stroke-linecap="round"
+        stroke-dasharray="${len.toFixed(2)} ${(C - len).toFixed(2)}" transform="rotate(-90 ${c} ${c})"/>
+      <text x="${c}" y="${c + 1}" text-anchor="middle" font-size="17" font-weight="800" fill="${col}">${pct.toFixed(1)}%</text>
+      <text x="${c}" y="${c + 16}" text-anchor="middle" font-size="9" fill="#8a94a6">achieved</text>
+    </svg>`;
+  };
+
   const qoPanel = (n, sum, th, gradeLabel, action, noData) => {
     const statement = `<b>\u2265${th}%</b> of students achieved <b>grade ${gradeLabel} and above</b>`;
     if (noData) {
-      return `<div style="flex:1;min-width:280px;border:1px dashed #dbe1e8;border-radius:14px;padding:18px;background:#fafbfc;">
+      return `<div style="flex:1;min-width:320px;border:1px dashed #dbe1e8;border-radius:14px;padding:18px;background:#fafbfc;">
         <div style="font-weight:800;font-size:16px;color:#1a2b45;margin-bottom:8px;">QO${n}</div>
-        <div style="font-size:14px;color:#475569;line-height:1.5;margin-bottom:12px;">${statement}</div>
+        <div style="font-size:14px;color:#475569;line-height:1.5;margin-bottom:10px;">${statement}</div>
         <div style="font-size:13px;color:#8a94a6;">No grade data recorded yet.</div>
       </div>`;
     }
     const pass = sum >= th;
-    const col = pass ? '#1f9d57' : '#c0392b';
-    const bg = pass ? '#e6f6ec' : '#fdecea';
-    const fill = Math.max(0, Math.min(100, sum));
-    const mark = Math.max(0, Math.min(100, th));
-    return `<div style="flex:1;min-width:280px;border:1px solid #e8ecf1;border-left:5px solid ${col};border-radius:14px;padding:18px;background:#fff;box-shadow:0 1px 3px rgba(16,24,40,.04);">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
-        <span style="font-weight:800;font-size:16px;color:#1a2b45;">QO${n}</span>
-        <span style="background:${bg};color:${col};font-weight:700;font-size:12px;padding:5px 12px;border-radius:20px;white-space:nowrap;">${pass ? '\u2705 ACHIEVED' : '\u274C NOT ACHIEVED'}</span>
+    const col = pass ? '#185FA5' : '#d97706';          // Biru institusi / Amber
+    const bg = pass ? '#e8f0fb' : '#fdf3e3';
+    const gap = Math.abs(sum - th);
+    return `<div style="flex:1;min-width:320px;border:1px solid #e8ecf1;border-left:5px solid ${col};border-radius:14px;padding:18px;background:#fff;box-shadow:0 1px 3px rgba(16,24,40,.04);">
+      <div style="display:flex;gap:16px;align-items:center;">
+        ${ring(sum, col)}
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+            <span style="font-weight:800;font-size:16px;color:#1a2b45;">QO${n}</span>
+            <span style="background:${bg};color:${col};font-weight:700;font-size:12px;padding:5px 12px;border-radius:20px;white-space:nowrap;">${pass ? '\u2713 ACHIEVED' : '\u2715 NOT ACHIEVED'}</span>
+          </div>
+          <div style="font-size:14px;color:#475569;line-height:1.5;margin-bottom:9px;">${statement}</div>
+          <div style="font-size:12px;color:#8a94a6;">Target \u2265${th}%  \u00b7  ${pass ? 'Exceeded target by ' : 'Short of target by '}<b style="color:${col};">${gap.toFixed(1)}%</b></div>
+        </div>
       </div>
-      <div style="font-size:14px;color:#475569;line-height:1.5;margin-bottom:14px;">${statement}</div>
-      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px;">
-        <span style="font-size:32px;font-weight:800;color:${col};line-height:1;">${sum.toFixed(1)}%</span>
-        <span style="font-size:13px;color:#8a94a6;">achieved</span>
-      </div>
-      <div style="position:relative;height:14px;background:#eef1f5;border-radius:8px;margin-bottom:7px;">
-        <div style="position:absolute;left:0;top:0;bottom:0;width:${fill}%;background:${col};border-radius:8px;"></div>
-        <div style="position:absolute;left:${mark}%;top:-3px;bottom:-3px;width:2px;background:#334155;" title="Target \u2265${th}%"></div>
-      </div>
-      <div style="font-size:12px;color:#8a94a6;">Target: \u2265${th}%  \u00b7  Marker shows the target line</div>
-      ${!pass && action ? `<div style="margin-top:12px;padding:10px 12px;background:#fff8e6;border-left:3px solid #e8a723;border-radius:7px;font-size:13px;color:#475569;line-height:1.5;"><b>Preventive / Corrective Action:</b> ${esc(action)}</div>` : ''}
+      ${!pass && action ? `<div style="margin-top:14px;padding:10px 12px;background:#fdf3e3;border-left:3px solid #d97706;border-radius:7px;font-size:13px;color:#475569;line-height:1.5;"><b>Preventive / Corrective Action:</b> ${esc(action)}</div>` : ''}
     </div>`;
   };
 
