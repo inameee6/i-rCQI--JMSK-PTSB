@@ -312,6 +312,7 @@ function renderDashboard() {
   const allKursus = [...new Set(visibleReports.map(r => r.KodKursus).filter(Boolean))].sort();
   const allProgram = [...new Set(visibleReports.map(r => r.Program).filter(Boolean))].sort();
   const allSesi = [...new Set(visibleReports.map(r => r.Sesi).filter(Boolean))].sort().reverse();
+  const allJabatan = [...new Set(visibleReports.map(r => r.Jabatan).filter(Boolean))].sort();
 
   // Recent PDFs for this user
   const assignedKod = currentUser.KodKursus;
@@ -386,6 +387,13 @@ function renderDashboard() {
         <button class="btn btn-outline btn-sm" onclick="exportDashboardCSV()">⬇ Export Summary (CSV)</button>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;">
+        <div class="form-group mb-0">
+          <label>Department</label>
+          <select id="dash-filter-jabatan" onchange="renderDashCharts()">
+            <option value="">— All Departments —</option>
+            ${allJabatan.map(j => `<option value="${esc(j)}">${esc(j)}</option>`).join('')}
+          </select>
+        </div>
         <div class="form-group mb-0">
           <label>Course Code</label>
           <select id="dash-filter-kursus" onchange="renderDashCharts()">
@@ -474,6 +482,7 @@ function renderFullPDFArchivePage() {
   const allSesi = [...new Set(logs.map(l => l.Sesi).filter(Boolean))].sort().reverse();
   const allOleh = [...new Set(logs.map(l => l.JanaOleh).filter(Boolean))].sort();
   const allProgram = [...new Set(logs.map(l => programFromNamaFail(l.NamaFail, l.KodKursus)).filter(Boolean))].sort();
+  const allJabatan = [...new Set(logs.map(l => jabatanForLog(l)).filter(Boolean))].sort();
 
   return `
     <div class="page-title">🗂️ PDF Archive</div>
@@ -482,6 +491,13 @@ function renderFullPDFArchivePage() {
     <div class="card" style="padding:1rem 1.5rem;">
       <b class="text-sm" style="display:block;margin-bottom:10px;">🔍 Filter PDFs</b>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;">
+        <div class="form-group mb-0">
+          <label>Department</label>
+          <select id="pdf-full-jabatan" onchange="filterFullPDFs()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:100%;">
+            <option value="">— All Departments —</option>
+            ${allJabatan.map(j => `<option value="${esc(j)}">${esc(j)}</option>`).join('')}
+          </select>
+        </div>
         <div class="form-group mb-0">
           <label>Programme</label>
           <select id="pdf-full-program" onchange="filterFullPDFs()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:100%;">
@@ -518,6 +534,18 @@ function renderFullPDFArchivePage() {
     </div>`;
 }
 
+// Jabatan untuk satu log PDF: padan dengan laporan sebenar dahulu (paling tepat),
+// jika tiada (cth laporan telah dipadam) guna peta Kod Kursus -> Jabatan dari Course Management.
+function jabatanForLog(l) {
+  const prog = programFromNamaFail(l.NamaFail, l.KodKursus);
+  const rep = cqiReports.find(r => r.KodKursus === l.KodKursus && r.Sesi === l.Sesi && (!prog || r.Program === prog));
+  if (rep && rep.Jabatan) return rep.Jabatan;
+  const pk = programKursusList.find(p => p.KodKursus === l.KodKursus && (!prog || p.Program === prog));
+  if (pk && pk.Jabatan) return pk.Jabatan;
+  const pk2 = programKursusList.find(p => p.KodKursus === l.KodKursus);
+  return (pk2 && pk2.Jabatan) ? pk2.Jabatan : '';
+}
+
 function programFromNamaFail(nama, kod) {
   if (!nama) return '';
   let base = String(nama).replace(/\.pdf$/i, '');
@@ -533,9 +561,11 @@ function filterFullPDFs() {
   const sesi = document.getElementById('pdf-full-sesi')?.value || '';
   const oleh = document.getElementById('pdf-full-oleh')?.value || '';
   const prog = document.getElementById('pdf-full-program')?.value || '';
+  const jab = document.getElementById('pdf-full-jabatan')?.value || '';
   const assignedKod = currentUser.KodKursus;
   let logs = pdfLogList.slice().reverse();
   if (currentUser.Peranan !== 'admin' && assignedKod) logs = logs.filter(l => l.KodKursus === assignedKod);
+  if (jab) logs = logs.filter(l => jabatanForLog(l) === jab);
   if (prog) logs = logs.filter(l => programFromNamaFail(l.NamaFail, l.KodKursus) === prog);
   if (kod) logs = logs.filter(l => l.KodKursus === kod);
   if (sesi) logs = logs.filter(l => l.Sesi === sesi);
@@ -608,7 +638,8 @@ function exportDashboardCSV() {
   const program = document.getElementById('dash-filter-program')?.value || '';
   const sesiA = document.getElementById('dash-filter-sesiA')?.value || '';
   const sesiB = document.getElementById('dash-filter-sesiB')?.value || '';
-  const base = getVisibleReports().filter(r => (!kod || r.KodKursus === kod) && (!program || r.Program === program));
+  const jabatan = document.getElementById('dash-filter-jabatan')?.value || '';
+  const base = getVisibleReports().filter(r => (!kod || r.KodKursus === kod) && (!program || r.Program === program) && (!jabatan || r.Jabatan === jabatan));
   const compared = base.filter(r => r.Sesi === sesiA || r.Sesi === sesiB);
   const total = base.length;
   const verified = base.filter(r => r.StatusPenyelaras === 'Disahkan' && r.StatusKetua === 'Disahkan').length;
@@ -633,7 +664,7 @@ function exportDashboardCSV() {
   const rows = [];
   rows.push(['i-rCQI Dashboard Summary']);
   rows.push(['Generated', new Date().toLocaleString('en-MY')]);
-  rows.push(['Course', kod || 'All', 'Programme', program || 'All']);
+  rows.push(['Department', jabatan || 'All', 'Course', kod || 'All', 'Programme', program || 'All']);
   rows.push(['Session A', sesiA || '-', 'Session B', sesiB || '-']);
   rows.push([]);
   rows.push(['Metric', 'Count']);
@@ -669,11 +700,12 @@ function renderDashCharts() {
   const program = document.getElementById('dash-filter-program')?.value || '';
   const sesiA = document.getElementById('dash-filter-sesiA')?.value || '';
   const sesiB = document.getElementById('dash-filter-sesiB')?.value || '';
+  const jabatan = document.getElementById('dash-filter-jabatan')?.value || '';
   const area = document.getElementById('dash-charts-area');
   if (!area) return;
 
   const base = getVisibleReports().filter(r =>
-    (!kod || r.KodKursus === kod) && (!program || r.Program === program));
+    (!kod || r.KodKursus === kod) && (!program || r.Program === program) && (!jabatan || r.Jabatan === jabatan));
 
   if (!sesiA && !sesiB) {
     area.innerHTML = `<div class="card" style="text-align:center;padding:2rem;color:var(--text-muted);"><div style="font-size:36px;margin-bottom:8px;">\u{1F4CA}</div><div>Use <b>Filter &amp; Analyse</b> above — select <b>Session A</b> (and optionally <b>Session B</b>) to view the CQI activity, achievement indicator, CLO/PLO comparison and grade distribution.</div></div>`;
