@@ -909,6 +909,20 @@ function renderDashCharts() {
     </div>
   </div>` : '';
 
+  const attachmentsCard = comparedReports.length ? `<div class="card" style="margin-bottom:1.25rem;">
+    <div class="card-title">\u{1F4CE} Report Attachments (by Programme & Session)</div>
+    <div class="table-wrap"><table style="font-size:13px;">
+      <thead><tr><th>Course</th><th>Programme</th><th>Session</th><th>7.1 Discussion Minutes</th><th>7.2 CQI Activity / Programme Report</th></tr></thead>
+      <tbody>${comparedReports.map(r => `<tr>
+        <td><span class="tag tag-blue">${esc(r.KodKursus)}</span></td>
+        <td>${esc(r.Program || '\u2014')}</td>
+        <td>${esc(r.Sesi)}</td>
+        <td>${r.LampiranMinitURL ? `<a href="${esc(r.LampiranMinitURL)}" target="_blank" class="file-link">View \u2197</a>` : '<span class="text-muted">\u2014</span>'}</td>
+        <td>${r.LampiranAktivitiURL ? `<a href="${esc(r.LampiranAktivitiURL)}" target="_blank" class="file-link">View \u2197</a>` : '<span class="text-muted">\u2014</span>'}</td>
+      </tr>`).join('')}</tbody>
+    </table></div>
+  </div>` : '';
+
   area.innerHTML =
     insightCard +
     activityCard +
